@@ -1,7 +1,7 @@
 services:
   # The Shared Database (Used by Spring Boot & Python)
   postgres:
-    image: pgvector/pgvector:pg16  # IMPORTANT: Uses the AI-ready version of Postgres
+    image: pgvector/pgvector:pg16
     container_name: sentinel-db
     ports:
       - "5432:5432"
