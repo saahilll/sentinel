@@ -6,6 +6,9 @@ python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
 python-dotenv
+pydantic-settings
+email-validator
+slowapi
 requests
 scikit-learn
 pandas
