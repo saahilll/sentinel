@@ -18,6 +18,7 @@ class OrgRole(str, Enum):
     OWNER = "owner"  # Full control, can delete org
     ADMIN = "admin"  # Can manage members and settings
     MEMBER = "member"  # Regular access
+    VIEWER = "viewer"  # Read-only access for stakeholders
 
 
 class UserOrganization(SQLModel, table=True):

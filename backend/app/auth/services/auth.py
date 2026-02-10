@@ -73,7 +73,8 @@ class AuthService:
         user = User(
             email=user_data.email,
             hashed_password=hash_password(user_data.password),
-            full_name=user_data.full_name,
+            first_name=user_data.first_name,
+            last_name=user_data.last_name,
         )
         user = await self.user_repo.create(user)
 

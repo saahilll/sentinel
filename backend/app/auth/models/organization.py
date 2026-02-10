@@ -23,9 +23,19 @@ class Organization(SQLModel, table=True):
     slug: str = Field(
         sa_column=Column(String(100), unique=True, index=True, nullable=False)
     )
+    description: str | None = Field(default=None, max_length=500)
+    logo_url: str | None = Field(default=None, max_length=512)
     is_active: bool = Field(default=True)
     created_at: datetime = Field(
         sa_column=Column(
             DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
         )
     )
+    updated_at: datetime = Field(
+        sa_column=Column(
+            DateTime(timezone=True),
+            default=lambda: datetime.now(timezone.utc),
+            onupdate=lambda: datetime.now(timezone.utc),
+        )
+    )
+

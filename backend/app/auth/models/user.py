@@ -5,28 +5,22 @@ Represents the users table in the database.
 
 import uuid
 from datetime import datetime, timezone
-from enum import Enum
 
 from sqlalchemy import Column, DateTime
 from sqlmodel import Field, SQLModel
-
-
-class UserRole(str, Enum):
-    """User roles for authorization."""
-
-    USER = "user"
-    ADMIN = "admin"
-    AGENT = "agent"  # Support agent
 
 
 class UserBase(SQLModel):
     """Base user fields shared across schemas."""
 
     email: str = Field(unique=True, index=True, max_length=255)
-    full_name: str | None = Field(default=None, max_length=255)
-    role: UserRole = Field(default=UserRole.USER)
+    first_name: str = Field(max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
+    phone: str | None = Field(default=None, max_length=20)
+    avatar_url: str | None = Field(default=None, max_length=512)
     is_active: bool = Field(default=True)
-    email_verified: bool = Field(default=False)  # TODO: Implement email verification
+    is_superadmin: bool = Field(default=False)
+    email_verified: bool = Field(default=False)
 
 
 class User(UserBase, table=True):
@@ -48,5 +42,11 @@ class User(UserBase, table=True):
             default=lambda: datetime.now(timezone.utc),
             onupdate=lambda: datetime.now(timezone.utc),
         )
+    )
+    last_login_at: datetime | None = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
+    deactivated_at: datetime | None = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=True)
     )
 

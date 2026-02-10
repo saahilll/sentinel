@@ -9,7 +9,6 @@ from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field
 
 from app.auth.models.membership import OrgRole
-from app.auth.models.user import UserRole
 
 
 # === Request Schemas ===
@@ -27,7 +26,8 @@ class UserCreate(BaseModel):
 
     email: EmailStr
     password: str = Field(min_length=8, max_length=100)
-    full_name: str | None = Field(default=None, max_length=255)
+    first_name: str = Field(min_length=1, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
     organization_name: str = Field(min_length=2, max_length=255)
     invites: list[InviteRequest] = Field(default_factory=list)
 
@@ -37,7 +37,8 @@ class UserCreateInvite(BaseModel):
 
     email: EmailStr
     password: str = Field(min_length=8, max_length=100)
-    full_name: str | None = Field(default=None, max_length=255)
+    first_name: str = Field(min_length=1, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
 
 
 class UserLogin(BaseModel):
@@ -68,8 +69,9 @@ class UserResponse(BaseModel):
 
     id: uuid.UUID
     email: str
-    full_name: str | None
-    role: UserRole
+    first_name: str
+    last_name: str | None
+    is_superadmin: bool
     is_active: bool
     email_verified: bool
     created_at: datetime
@@ -148,3 +150,4 @@ class MessageResponse(BaseModel):
     """Generic message response."""
 
     message: str
+
