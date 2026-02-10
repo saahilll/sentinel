@@ -53,6 +53,13 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
 
+class OrganizationCreate(BaseModel):
+    """Schema for creating a new organization (authenticated user)."""
+
+    name: str = Field(min_length=2, max_length=255)
+    invites: list[InviteRequest] = Field(default_factory=list)
+
+
 # === Response Schemas ===
 
 
@@ -79,12 +86,32 @@ class OrganizationBrief(BaseModel):
     role: str
 
 
+class OrganizationResponse(BaseModel):
+    """Full organization info for create response."""
+
+    id: uuid.UUID
+    name: str
+    slug: str
+    role: str
+    created_at: datetime
+
+
 class TokenResponse(BaseModel):
     """Schema for authentication tokens."""
 
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
+
+class RegisterResult(BaseModel):
+    """Internal result from registration (not exposed to API)."""
+
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    user_id: uuid.UUID
+    organization_id: uuid.UUID
 
 
 class LoginResponse(BaseModel):

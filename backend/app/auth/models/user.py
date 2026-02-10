@@ -43,6 +43,10 @@ class User(UserBase, table=True):
         sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     )
     updated_at: datetime = Field(
-        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+        sa_column=Column(
+            DateTime(timezone=True),
+            default=lambda: datetime.now(timezone.utc),
+            onupdate=lambda: datetime.now(timezone.utc),
+        )
     )
 

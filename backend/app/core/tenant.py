@@ -5,10 +5,11 @@ Ensures users can only access their own organization data.
 
 import uuid
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user_id, get_db
+from app.core.exceptions import AuthorizationError, NotFoundError
 from app.auth.models.membership import OrgRole, UserOrganization
 from app.auth.models.organization import Organization
 from app.auth.repositories.membership import MembershipRepository
@@ -32,8 +33,8 @@ async def verify_tenant_access(
         Tuple of (Organization, UserOrganization) for further role checks
 
     Raises:
-        HTTPException 404: Organization not found
-        HTTPException 403: User not a member
+        NotFoundError: Organization not found
+        AuthorizationError: User not a member
     """
     org_repo = OrganizationRepository(db)
     membership_repo = MembershipRepository(db)
@@ -41,20 +42,14 @@ async def verify_tenant_access(
     # Get organization by slug
     organization = await org_repo.get_by_slug(tenant)
     if organization is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Organization not found",
-        )
+        raise NotFoundError("Organization")
 
     # Verify user is a member
     membership = await membership_repo.get_membership(
         uuid.UUID(user_id), organization.id
     )
     if membership is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied: not a member of this organization",
-        )
+        raise AuthorizationError("Access denied: not a member of this organization")
 
     return organization, membership
 
@@ -70,10 +65,7 @@ async def require_admin_or_owner(
     organization, membership = org_access
 
     if membership.role not in [OrgRole.OWNER, OrgRole.ADMIN]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin or owner access required",
-        )
+        raise AuthorizationError("Admin or owner access required")
 
     return organization, membership
 
@@ -89,9 +81,6 @@ async def require_owner(
     organization, membership = org_access
 
     if membership.role != OrgRole.OWNER:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Owner access required",
-        )
+        raise AuthorizationError("Owner access required")
 
     return organization, membership

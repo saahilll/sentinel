@@ -5,13 +5,11 @@ Tenant-scoped routes for managing invitations.
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_db
-from app.core.exceptions import ConflictError, NotFoundError
+from app.core.dependencies import get_invite_service
 from app.core.tenant import require_admin_or_owner, verify_tenant_access
 from app.auth.models.membership import UserOrganization
 from app.auth.models.organization import Organization
@@ -36,35 +34,22 @@ async def create_invite(
     tenant: str,
     invite_data: InviteRequest,
     org_access: tuple[Organization, UserOrganization] = Depends(require_admin_or_owner),
-    db: AsyncSession = Depends(get_db),
+    invite_service: InviteService = Depends(get_invite_service),
 ) -> InviteResponse:
     """Invite a user to join the organization. Requires admin or owner role."""
     organization, membership = org_access
-    invite_service = InviteService(db)
-
-    try:
-        invitation = await invite_service.create_invite(
-            org_slug=tenant,
-            invite_data=invite_data,
-            inviter_id=membership.user_id,
-        )
-        return InviteResponse(
-            id=invitation.id,
-            email=invitation.email,
-            role=invitation.role.value,
-            token=invitation.token,
-            expires_at=invitation.expires_at,
-        )
-    except NotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e.message),
-        )
-    except ConflictError as e:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(e.message),
-        )
+    invitation = await invite_service.create_invite(
+        org_id=organization.id,
+        invite_data=invite_data,
+        inviter_id=membership.user_id,
+    )
+    return InviteResponse(
+        id=invitation.id,
+        email=invitation.email,
+        role=invitation.role.value,
+        token=invitation.token,
+        expires_at=invitation.expires_at,
+    )
 
 
 @router.get(
@@ -75,32 +60,21 @@ async def create_invite(
 async def list_invites(
     tenant: str,
     org_access: tuple[Organization, UserOrganization] = Depends(verify_tenant_access),
-    db: AsyncSession = Depends(get_db),
+    invite_service: InviteService = Depends(get_invite_service),
 ) -> list[InviteResponse]:
     """List all pending invitations for the organization."""
     organization, membership = org_access
-    invite_service = InviteService(db)
-
-    try:
-        invitations = await invite_service.list_pending_invites(
-            org_slug=tenant,
-            user_id=membership.user_id,
+    invitations = await invite_service.list_pending_invites(org_id=organization.id)
+    return [
+        InviteResponse(
+            id=inv.id,
+            email=inv.email,
+            role=inv.role.value,
+            token=inv.token,
+            expires_at=inv.expires_at,
         )
-        return [
-            InviteResponse(
-                id=inv.id,
-                email=inv.email,
-                role=inv.role.value,
-                token=inv.token,
-                expires_at=inv.expires_at,
-            )
-            for inv in invitations
-        ]
-    except NotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e.message),
-        )
+        for inv in invitations
+    ]
 
 
 @router.delete(
@@ -112,21 +86,12 @@ async def revoke_invite(
     tenant: str,
     invite_id: uuid.UUID,
     org_access: tuple[Organization, UserOrganization] = Depends(require_admin_or_owner),
-    db: AsyncSession = Depends(get_db),
+    invite_service: InviteService = Depends(get_invite_service),
 ) -> MessageResponse:
     """Revoke a pending invitation. Requires admin or owner role."""
     organization, membership = org_access
-    invite_service = InviteService(db)
-
-    try:
-        await invite_service.revoke_invite(
-            org_slug=tenant,
-            invite_id=invite_id,
-            user_id=membership.user_id,
-        )
-        return MessageResponse(message="Invitation revoked")
-    except NotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e.message),
-        )
+    await invite_service.revoke_invite(
+        org_id=organization.id,
+        invite_id=invite_id,
+    )
+    return MessageResponse(message="Invitation revoked")

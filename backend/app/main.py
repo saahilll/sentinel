@@ -13,6 +13,7 @@ from slowapi.util import get_remote_address
 
 from app.auth.router import router as auth_router
 from app.core.database import init_db
+from app.core.exception_handlers import register_exception_handlers
 from app.core.middleware import SecurityHeadersMiddleware
 
 # Rate limiter instance
@@ -23,9 +24,9 @@ limiter = Limiter(key_func=get_remote_address)
 async def lifespan(app: FastAPI):
     """Application lifespan handler."""
     await init_db()
-    print("✅ Database initialized")
+    print("Database initialized")
     yield
-    print("👋 Shutting down Sentinel Core")
+    print("Shutting down Sentinel Core")
 
 
 app = FastAPI(
@@ -38,6 +39,9 @@ app = FastAPI(
 # Attach rate limiter to app
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Global domain exception handlers
+register_exception_handlers(app)
 
 # Security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)

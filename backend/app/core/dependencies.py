@@ -1,6 +1,7 @@
 """
 FastAPI dependency injection utilities.
 Provides reusable dependencies for routes.
+Wires up the Repository → Service → Route chain.
 """
 
 from fastapi import Depends
@@ -8,7 +9,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
-from app.core.exceptions import credentials_exception
+from app.core.exceptions import AuthenticationError
 from app.core.security import decode_token
 
 # OAuth2 scheme for Bearer token extraction
@@ -31,12 +32,61 @@ async def get_current_user_id(token: str = Depends(oauth2_scheme)) -> str:
     """
     payload = decode_token(token)
     if payload is None:
-        raise credentials_exception()
+        raise AuthenticationError("Could not validate credentials")
 
     user_id: str | None = payload.get("sub")
     token_type: str | None = payload.get("type")
 
     if user_id is None or token_type != "access":
-        raise credentials_exception()
+        raise AuthenticationError("Could not validate credentials")
 
     return user_id
+
+
+# --- Repository Providers ---
+
+def get_user_repo(db: AsyncSession = Depends(get_db)):
+    """Provide UserRepository instance."""
+    from app.auth.repositories.user import UserRepository
+    return UserRepository(db)
+
+
+def get_org_repo(db: AsyncSession = Depends(get_db)):
+    """Provide OrganizationRepository instance."""
+    from app.auth.repositories.organization import OrganizationRepository
+    return OrganizationRepository(db)
+
+
+def get_membership_repo(db: AsyncSession = Depends(get_db)):
+    """Provide MembershipRepository instance."""
+    from app.auth.repositories.membership import MembershipRepository
+    return MembershipRepository(db)
+
+
+def get_invite_repo(db: AsyncSession = Depends(get_db)):
+    """Provide InvitationRepository instance."""
+    from app.auth.repositories.invitation import InvitationRepository
+    return InvitationRepository(db)
+
+
+# --- Service Providers ---
+
+def get_auth_service(
+    user_repo=Depends(get_user_repo),
+    org_repo=Depends(get_org_repo),
+    membership_repo=Depends(get_membership_repo),
+):
+    """Provide AuthService with injected repositories."""
+    from app.auth.services.auth import AuthService
+    return AuthService(user_repo, org_repo, membership_repo)
+
+
+def get_invite_service(
+    invite_repo=Depends(get_invite_repo),
+    org_repo=Depends(get_org_repo),
+    membership_repo=Depends(get_membership_repo),
+    user_repo=Depends(get_user_repo),
+):
+    """Provide InviteService with injected repositories."""
+    from app.auth.services.invite import InviteService
+    return InviteService(invite_repo, org_repo, membership_repo, user_repo)
