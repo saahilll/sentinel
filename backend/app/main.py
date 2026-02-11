@@ -49,6 +49,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 # CORS configuration
 origins = [
     "http://localhost:3000",
+    "http://localhost:3001",  # Frontend fallback port
     "http://localhost:8000",
 ]
 

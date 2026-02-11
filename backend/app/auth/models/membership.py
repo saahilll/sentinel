@@ -29,6 +29,9 @@ class UserOrganization(SQLModel, table=True):
 
     __tablename__ = "user_organizations"
     __table_args__ = (
+        # Unique constraint on (user_id, organization_id) serves two purposes:
+        # 1. Data Integrity: A user cannot join the same org twice.
+        # 2. Performance: implicitly creates a composite index for optimizing user-org lookups.
         UniqueConstraint("user_id", "organization_id", name="uq_user_org"),
     )
 

@@ -19,7 +19,10 @@ class UserBase(SQLModel):
     phone: str | None = Field(default=None, max_length=20)
     avatar_url: str | None = Field(default=None, max_length=512)
     is_active: bool = Field(default=True)
-    is_superadmin: bool = Field(default=False)
+    is_superadmin: bool = Field(
+        default=False,
+        description="Global platform administrator (SaaS owner). NOT for organization-level admins.",
+    )
     email_verified: bool = Field(default=False)
 
 
