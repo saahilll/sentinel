@@ -1,6 +1,6 @@
 """
 Organization invite endpoints.
-Tenant-scoped routes for managing invitations.
+Organization-scoped routes for managing invitations.
 """
 
 import uuid
@@ -10,7 +10,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.core.dependencies import get_invite_service
-from app.core.tenant import require_admin_or_owner, verify_tenant_access
+from app.core.organization import require_admin_or_owner, verify_organization_access
 from app.auth.models.membership import UserOrganization
 from app.auth.models.organization import Organization
 from app.auth.schemas import InviteRequest, InviteResponse, MessageResponse
@@ -23,7 +23,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post(
-    "/{tenant}/invites",
+    "/{organization_slug}/invites",
     response_model=InviteResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Invite a user to organization",
@@ -31,7 +31,7 @@ limiter = Limiter(key_func=get_remote_address)
 @limiter.limit("10/minute")
 async def create_invite(
     request: Request,
-    tenant: str,
+    organization_slug: str,
     invite_data: InviteRequest,
     org_access: tuple[Organization, UserOrganization] = Depends(require_admin_or_owner),
     invite_service: InviteService = Depends(get_invite_service),
@@ -53,13 +53,13 @@ async def create_invite(
 
 
 @router.get(
-    "/{tenant}/invites",
+    "/{organization_slug}/invites",
     response_model=list[InviteResponse],
     summary="List pending invites",
 )
 async def list_invites(
-    tenant: str,
-    org_access: tuple[Organization, UserOrganization] = Depends(verify_tenant_access),
+    organization_slug: str,
+    org_access: tuple[Organization, UserOrganization] = Depends(verify_organization_access),
     invite_service: InviteService = Depends(get_invite_service),
 ) -> list[InviteResponse]:
     """List all pending invitations for the organization."""
@@ -78,12 +78,12 @@ async def list_invites(
 
 
 @router.delete(
-    "/{tenant}/invites/{invite_id}",
+    "/{organization_slug}/invites/{invite_id}",
     response_model=MessageResponse,
     summary="Revoke invitation",
 )
 async def revoke_invite(
-    tenant: str,
+    organization_slug: str,
     invite_id: uuid.UUID,
     org_access: tuple[Organization, UserOrganization] = Depends(require_admin_or_owner),
     invite_service: InviteService = Depends(get_invite_service),

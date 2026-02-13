@@ -1,5 +1,5 @@
 """
-Tenant isolation and access control utilities.
+Organization access control utilities.
 Ensures users can only access their own organization data.
 """
 
@@ -16,16 +16,16 @@ from app.auth.repositories.membership import MembershipRepository
 from app.auth.repositories.organization import OrganizationRepository
 
 
-async def verify_tenant_access(
-    tenant: str,
+async def verify_organization_access(
+    organization_slug: str,
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ) -> tuple[Organization, UserOrganization]:
     """
-    Verify user has access to the specified tenant.
+    Verify user has access to the specified organization.
 
     Args:
-        tenant: Organization slug from URL path
+        organization_slug: Organization slug from URL path
         user_id: Authenticated user ID from JWT
         db: Database session
 
@@ -40,7 +40,7 @@ async def verify_tenant_access(
     membership_repo = MembershipRepository(db)
 
     # Get organization by slug
-    organization = await org_repo.get_by_slug(tenant)
+    organization = await org_repo.get_by_slug(organization_slug)
     if organization is None:
         raise NotFoundError("Organization")
 
@@ -55,12 +55,12 @@ async def verify_tenant_access(
 
 
 async def require_admin_or_owner(
-    org_access: tuple[Organization, UserOrganization] = Depends(verify_tenant_access),
+    org_access: tuple[Organization, UserOrganization] = Depends(verify_organization_access),
 ) -> tuple[Organization, UserOrganization]:
     """
     Require user to be admin or owner of the organization.
 
-    Use after verify_tenant_access for protected operations.
+    Use after verify_organization_access for protected operations.
     """
     organization, membership = org_access
 
@@ -71,7 +71,7 @@ async def require_admin_or_owner(
 
 
 async def require_owner(
-    org_access: tuple[Organization, UserOrganization] = Depends(verify_tenant_access),
+    org_access: tuple[Organization, UserOrganization] = Depends(verify_organization_access),
 ) -> tuple[Organization, UserOrganization]:
     """
     Require user to be owner of the organization.
