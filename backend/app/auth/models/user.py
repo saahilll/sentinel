@@ -24,6 +24,7 @@ class UserBase(SQLModel):
         description="Global platform administrator (SaaS owner). NOT for organization-level admins.",
     )
     email_verified: bool = Field(default=False)
+    auth_provider: str = Field(default="email", max_length=50)
 
 
 class User(UserBase, table=True):

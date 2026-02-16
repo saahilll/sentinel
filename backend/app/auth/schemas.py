@@ -104,6 +104,7 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+    expires_in: int = 900  # 15 minutes in seconds
 
 
 class RegisterResult(BaseModel):
@@ -151,3 +152,44 @@ class MessageResponse(BaseModel):
 
     message: str
 
+
+class MagicLinkRequest(BaseModel):
+    email: EmailStr
+    flow: str | None = None  # "login", "signup", "reset"
+
+
+class VerifyRequest(BaseModel):
+    token: str
+    flow: str | None = None
+    device_info: str | None = ""
+    remember_me: bool = True
+
+
+class PasswordLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+    remember_me: bool = True
+
+
+class ValidateRequest(BaseModel):
+    """Schema for session validation."""
+
+    refresh_token: str
+
+
+class ValidateResponse(BaseModel):
+    """Schema for session validation response."""
+
+    valid: bool
+
+
+class SessionResponse(BaseModel):
+    """Schema for active session info."""
+
+    id: uuid.UUID
+    device_info: str
+    ip_address: str | None = None
+    last_used_at: datetime
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

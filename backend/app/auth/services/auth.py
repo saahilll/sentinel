@@ -1,206 +1,154 @@
 """
-Authentication service containing core auth business logic.
-Handles user registration, login, and token management.
+Authentication service — orchestrates auth flows.
+Matches APILens pattern: returns (access_token, refresh_token, user) tuples.
+Includes rate limiting, reuse detection, session management.
 """
 
-import uuid
+import logging
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+from uuid import UUID
 
-from app.core.exceptions import AuthenticationError, ConflictError, NotFoundError
-from app.core.security import (
-    create_access_token,
-    create_refresh_token,
-    decode_token,
-    hash_password,
-    verify_password,
-)
-from app.core.utils import slugify
-from app.auth.models.membership import OrgRole, UserOrganization
-from app.auth.models.organization import Organization
 from app.auth.models.user import User
-from app.auth.repositories.membership import MembershipRepository
-from app.auth.repositories.organization import OrganizationRepository
+from app.auth.repositories.token import TokenRepository, MAGIC_LINK_RATE_LIMIT
 from app.auth.repositories.user import UserRepository
-from app.auth.schemas import (
-    LoginResponse,
-    OrganizationBrief,
-    OrganizationCreate,
-    OrganizationResponse,
-    RegisterResult,
-    TokenResponse,
-    UserCreate,
-    UserLogin,
-)
+from app.core.exceptions import AuthenticationError, RateLimitError
+from app.core.security import create_access_token, verify_password
+
+logger = logging.getLogger(__name__)
+
+
+# Placeholder for email service (prints to console in dev)
+def _send_magic_link_email(email: str, token: str) -> None:
+    print(
+        f"MAGIC LINK for {email}: "
+        f"http://localhost:3000/auth/verify?token={token}&flow=signup"
+    )
 
 
 class AuthService:
-    """
-    Service class for core authentication operations.
-    Receives repositories via dependency injection.
-    """
-
-    def __init__(
-        self,
-        user_repo: UserRepository,
-        org_repo: OrganizationRepository,
-        membership_repo: MembershipRepository,
-    ):
+    def __init__(self, user_repo: UserRepository, token_repo: TokenRepository):
         self.user_repo = user_repo
-        self.org_repo = org_repo
-        self.membership_repo = membership_repo
+        self.token_repo = token_repo
 
-    async def register(self, user_data: UserCreate) -> RegisterResult:
-        """Register a new user and create their organization."""
-        # Check if email already exists
-        if await self.user_repo.exists_by_email(user_data.email):
-            raise ConflictError("Email already registered")
+    # ── Magic Link ────────────────────────────────────────────────
 
-        # Generate unique slug for organization
-        base_slug = slugify(user_data.organization_name)
-        slug = base_slug
-        counter = 1
-        while await self.org_repo.exists_by_slug(slug):
-            slug = f"{base_slug}-{counter}"
-            counter += 1
+    async def request_magic_link(
+        self, email: str, ip_address: Optional[str] = None
+    ) -> None:
+        """Request a magic link. Rate limited to 3/min/email."""
+        email = email.lower().strip()
 
-        # Create organization
-        organization = Organization(
-            name=user_data.organization_name,
-            slug=slug,
-        )
-        organization = await self.org_repo.create(organization)
-
-        # Create user with hashed password
-        user = User(
-            email=user_data.email,
-            hashed_password=hash_password(user_data.password),
-            first_name=user_data.first_name,
-            last_name=user_data.last_name,
-        )
-        user = await self.user_repo.create(user)
-
-        # Create membership (user is owner of their org)
-        membership = UserOrganization(
-            user_id=user.id,
-            organization_id=organization.id,
-            role=OrgRole.OWNER,
-        )
-        await self.membership_repo.create(membership)
-
-        # Generate tokens with org/user context for invite creation
-        tokens = self._create_tokens(str(user.id))
-        return RegisterResult(
-            access_token=tokens.access_token,
-            refresh_token=tokens.refresh_token,
-            user_id=user.id,
-            organization_id=organization.id,
-        )
-
-    async def create_organization(
-        self, user_id: str, org_data: OrganizationCreate
-    ) -> OrganizationResponse:
-        """
-        Create a new organization for an existing authenticated user.
-        The user becomes the owner of the new organization.
-        """
-        user = await self.user_repo.get_by_id(uuid.UUID(user_id))
-        if user is None:
-            raise NotFoundError("User")
-
-        # Generate unique slug
-        base_slug = slugify(org_data.name)
-        slug = base_slug
-        counter = 1
-        while await self.org_repo.exists_by_slug(slug):
-            slug = f"{base_slug}-{counter}"
-            counter += 1
-
-        # Create organization
-        organization = Organization(
-            name=org_data.name,
-            slug=slug,
-        )
-        organization = await self.org_repo.create(organization)
-
-        # Create membership (user is owner)
-        membership = UserOrganization(
-            user_id=user.id,
-            organization_id=organization.id,
-            role=OrgRole.OWNER,
-        )
-        await self.membership_repo.create(membership)
-
-        return OrganizationResponse(
-            id=organization.id,
-            name=organization.name,
-            slug=organization.slug,
-            role=OrgRole.OWNER.value,
-            created_at=organization.created_at,
-        )
-
-    async def login(self, credentials: UserLogin) -> LoginResponse:
-        """Authenticate a user and return tokens with organization list."""
-        user = await self.user_repo.get_by_email(credentials.email)
-
-        if user is None:
-            raise AuthenticationError("Invalid email or password")
-
-        if not verify_password(credentials.password, user.hashed_password):
-            raise AuthenticationError("Invalid email or password")
-
-        if not user.is_active:
-            raise AuthenticationError("Account is disabled")
-
-        # Get user's organizations
-        org_memberships = await self.membership_repo.get_user_organizations(user.id)
-        organizations = [
-            OrganizationBrief(
-                id=org.id,
-                name=org.name,
-                slug=org.slug,
-                role=role.value,
+        # Rate limit check (same as APILens)
+        one_minute_ago = datetime.now(timezone.utc) - timedelta(minutes=1)
+        recent = await self.token_repo.count_recent_magic_links(email, one_minute_ago)
+        if recent >= MAGIC_LINK_RATE_LIMIT:
+            raise RateLimitError(
+                "Too many magic link requests. Please wait a moment."
             )
-            for org, role in org_memberships
-        ]
 
-        tokens = self._create_tokens(str(user.id))
-        return LoginResponse(
-            access_token=tokens.access_token,
-            refresh_token=tokens.refresh_token,
-            organizations=organizations,
+        raw_token = await self.token_repo.create_magic_link_token(email, ip_address)
+        _send_magic_link_email(email, raw_token)
+
+    async def verify_magic_link(
+        self,
+        token: str,
+        device_info: str = "",
+        ip_address: Optional[str] = None,
+        remember_me: bool = True,
+    ) -> tuple[str, str, User]:
+        """Verify a magic link and return (access_token, refresh_token, user)."""
+        magic_token = await self.token_repo.get_magic_link_token(token)
+        if not magic_token:
+            raise AuthenticationError("Invalid or expired magic link")
+
+        await self.token_repo.mark_magic_link_used(magic_token)
+
+        # Get or create user (same pattern as APILens)
+        user = await self.user_repo.get_by_email(magic_token.email)
+        if not user:
+            new_user = User(
+                email=magic_token.email,
+                first_name="User",
+                hashed_password="!",  # unusable password
+                email_verified=True,
+                auth_provider="magic_link",
+            )
+            user = await self.user_repo.create(new_user)
+            logger.info(f"New user created via magic link: {magic_token.email}")
+        elif not user.email_verified:
+            user.email_verified = True
+            await self.user_repo.update(user)
+
+        # Update last login
+        user.last_login_at = datetime.now(timezone.utc)
+        await self.user_repo.update(user)
+
+        # Create tokens (pass remember_me)
+        raw_refresh, _ = await self.token_repo.create_refresh_token(
+            user, device_info, ip_address, remember_me=remember_me
         )
+        access_token = create_access_token(subject=str(user.id))
 
-    async def refresh_tokens(self, refresh_token: str) -> TokenResponse:
-        """Refresh access token using a valid refresh token."""
-        payload = decode_token(refresh_token)
+        return access_token, raw_refresh, user
 
-        if payload is None:
-            raise AuthenticationError("Invalid refresh token")
+    # ── Password Login ────────────────────────────────────────────
 
-        if payload.get("type") != "refresh":
-            raise AuthenticationError("Invalid token type")
+    async def login_with_password(
+        self,
+        email: str,
+        password: str,
+        device_info: str = "",
+        ip_address: Optional[str] = None,
+        remember_me: bool = True,
+    ) -> tuple[str, str, User]:
+        """Authenticate with email+password. Returns (access_token, refresh_token, user)."""
+        email = email.lower().strip()
 
-        user_id = payload.get("sub")
-        if user_id is None:
-            raise AuthenticationError("Invalid refresh token")
+        # Filter by is_active (gap #9 fix)
+        user = await self.user_repo.get_active_by_email(email)
+        if not user or not verify_password(password, user.hashed_password):
+            raise AuthenticationError("Invalid email or password")
 
-        user = await self.user_repo.get_by_id(uuid.UUID(user_id))
-        if user is None or not user.is_active:
-            raise AuthenticationError("User not found or inactive")
+        user.last_login_at = datetime.now(timezone.utc)
+        await self.user_repo.update(user)
 
-        return self._create_tokens(user_id)
-
-    async def get_current_user(self, user_id: str) -> User:
-        """Get the currently authenticated user."""
-        user = await self.user_repo.get_by_id(uuid.UUID(user_id))
-
-        if user is None:
-            raise NotFoundError("User")
-
-        return user
-
-    def _create_tokens(self, user_id: str) -> TokenResponse:
-        """Generate access and refresh tokens for a user."""
-        return TokenResponse(
-            access_token=create_access_token(user_id),
-            refresh_token=create_refresh_token(user_id),
+        raw_refresh, _ = await self.token_repo.create_refresh_token(
+            user, device_info, ip_address, remember_me=remember_me
         )
+        access_token = create_access_token(subject=str(user.id))
+
+        return access_token, raw_refresh, user
+
+    # ── Refresh (with reuse detection) ────────────────────────────
+
+    async def refresh_token(self, raw_refresh_token: str) -> tuple[str, str, User]:
+        """Rotate refresh token with reuse detection. Returns (access, refresh, user)."""
+        new_raw, _, user = await self.token_repo.rotate_refresh_token(
+            raw_refresh_token
+        )
+        access_token = create_access_token(subject=str(user.id))
+        return access_token, new_raw, user
+
+    # ── Validate ──────────────────────────────────────────────────
+
+    async def validate_session(self, raw_refresh_token: str) -> bool:
+        """Check if a session is alive without rotating."""
+        return await self.token_repo.is_session_alive(raw_refresh_token)
+
+    # ── Sessions ──────────────────────────────────────────────────
+
+    async def get_active_sessions(self, user_id: UUID):
+        """List active sessions for a user (deduplicated by device/IP)."""
+        return await self.token_repo.get_active_sessions(user_id)
+
+    async def revoke_session(self, user_id: UUID, session_id: UUID) -> bool:
+        """Revoke a specific session."""
+        return await self.token_repo.revoke_session(user_id, session_id)
+
+    # ── Logout ────────────────────────────────────────────────────
+
+    async def logout(self, raw_refresh_token: str) -> None:
+        token_obj = await self.token_repo.get_refresh_token(raw_refresh_token)
+        if token_obj:
+            await self.token_repo.revoke_refresh_token(token_obj)

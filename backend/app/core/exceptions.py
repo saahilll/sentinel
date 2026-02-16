@@ -20,6 +20,20 @@ class AuthenticationError(SentinelException):
         super().__init__(message)
 
 
+class TokenExpiredError(SentinelException):
+    """Raised when a token (access, refresh, magic link) has expired."""
+
+    def __init__(self, message: str = "Token has expired"):
+        super().__init__(message)
+
+
+class RateLimitError(SentinelException):
+    """Raised when a rate limit is exceeded."""
+
+    def __init__(self, message: str = "Too many requests. Please wait."):
+        super().__init__(message)
+
+
 class AuthorizationError(SentinelException):
     """Raised when user lacks permission."""
 

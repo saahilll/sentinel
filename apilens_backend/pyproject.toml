@@ -1,0 +1,35 @@
+[project]
+name = "apilens"
+version = "1.0.0"
+description = "apilens - API Observability Platform"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    { name = "apilens Team" }
+]
+
+dependencies = [
+    "django>=5.0,<6.0",
+    "django-ninja>=1.0,<2.0",
+    "django-cors-headers>=4.3,<5.0",
+    "psycopg[binary]>=3.1,<4.0",
+    "python-dotenv>=1.0,<2.0",
+    "gunicorn>=21.0,<23.0",
+    "httpx>=0.25,<1.0",
+    "PyJWT[crypto]>=2.8,<3.0",
+    "Pillow>=10.0,<12.0",
+    "clickhouse-driver>=0.2.10",
+    "fastapi>=0.129.0",
+    "apilenss>=0.1.2",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# This is not a distributable Python package — it's a Django project.
+# We list packages explicitly to avoid setuptools complaining about
+# the flat multi-package layout (api/, apps/, config/, core/).
+packages = []

@@ -51,6 +51,12 @@ def get_user_repo(db: AsyncSession = Depends(get_db)):
     return UserRepository(db)
 
 
+def get_token_repo(db: AsyncSession = Depends(get_db)):
+    """Provide TokenRepository instance."""
+    from app.auth.repositories.token import TokenRepository
+    return TokenRepository(db)
+
+
 def get_org_repo(db: AsyncSession = Depends(get_db)):
     """Provide OrganizationRepository instance."""
     from app.auth.repositories.organization import OrganizationRepository
@@ -73,12 +79,11 @@ def get_invite_repo(db: AsyncSession = Depends(get_db)):
 
 def get_auth_service(
     user_repo=Depends(get_user_repo),
-    org_repo=Depends(get_org_repo),
-    membership_repo=Depends(get_membership_repo),
+    token_repo=Depends(get_token_repo),
 ):
     """Provide AuthService with injected repositories."""
     from app.auth.services.auth import AuthService
-    return AuthService(user_repo, org_repo, membership_repo)
+    return AuthService(user_repo, token_repo)
 
 
 def get_invite_service(

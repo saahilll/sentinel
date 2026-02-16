@@ -11,7 +11,9 @@ from app.core.exceptions import (
     AuthorizationError,
     ConflictError,
     NotFoundError,
+    RateLimitError,
     SentinelException,
+    TokenExpiredError,
 )
 
 
@@ -19,6 +21,17 @@ async def authentication_error_handler(
     request: Request, exc: AuthenticationError
 ) -> JSONResponse:
     """Handle authentication failures → 401."""
+    return JSONResponse(
+        status_code=401,
+        content={"detail": exc.message},
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+async def token_expired_error_handler(
+    request: Request, exc: TokenExpiredError
+) -> JSONResponse:
+    """Handle expired tokens → 401."""
     return JSONResponse(
         status_code=401,
         content={"detail": exc.message},
@@ -56,6 +69,16 @@ async def conflict_error_handler(
     )
 
 
+async def rate_limit_error_handler(
+    request: Request, exc: RateLimitError
+) -> JSONResponse:
+    """Handle rate limit exceeded → 429."""
+    return JSONResponse(
+        status_code=429,
+        content={"detail": exc.message},
+    )
+
+
 async def sentinel_error_handler(
     request: Request, exc: SentinelException
 ) -> JSONResponse:
@@ -69,7 +92,9 @@ async def sentinel_error_handler(
 def register_exception_handlers(app) -> None:
     """Register all global exception handlers on the FastAPI app."""
     app.add_exception_handler(AuthenticationError, authentication_error_handler)
+    app.add_exception_handler(TokenExpiredError, token_expired_error_handler)
     app.add_exception_handler(AuthorizationError, authorization_error_handler)
     app.add_exception_handler(NotFoundError, not_found_error_handler)
     app.add_exception_handler(ConflictError, conflict_error_handler)
+    app.add_exception_handler(RateLimitError, rate_limit_error_handler)
     app.add_exception_handler(SentinelException, sentinel_error_handler)

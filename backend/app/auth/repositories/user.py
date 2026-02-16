@@ -39,6 +39,12 @@ class UserRepository:
         result = await self.session.execute(statement)
         return result.scalar_one_or_none()
 
+    async def get_active_by_email(self, email: str) -> User | None:
+        """Find an active user by email (excludes deactivated users)."""
+        statement = select(User).where(User.email == email, User.is_active == True)
+        result = await self.session.execute(statement)
+        return result.scalar_one_or_none()
+
     async def update(self, user: User) -> User:
         """Update an existing user."""
         self.session.add(user)

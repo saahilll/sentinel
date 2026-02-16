@@ -1,185 +1,158 @@
 """
-Authentication API endpoints.
-Handles user registration, login, and token management.
+Auth API routes — mirrors APILens router pattern.
+Uses centralized DI from dependencies.py.
+Includes rate limiting on sensitive endpoints.
 """
 
 import uuid
 
-from fastapi import APIRouter, Depends, Query, Request, status
-from slowapi import Limiter
-from slowapi.util import get_remote_address
+from fastapi import APIRouter, Depends, Request
 
-from app.core.dependencies import get_auth_service, get_current_user_id, get_invite_service
 from app.auth.schemas import (
-    InviteValidation,
-    LoginResponse,
+    MagicLinkRequest,
     MessageResponse,
-    OrganizationBrief,
-    OrganizationCreate,
-    OrganizationResponse,
+    PasswordLoginRequest,
     RefreshTokenRequest,
+    SessionResponse,
     TokenResponse,
-    UserCreate,
-    UserCreateInvite,
-    UserLogin,
     UserResponse,
+    ValidateRequest,
+    ValidateResponse,
+    VerifyRequest,
 )
-from app.auth.services.auth import AuthService
-from app.auth.services.invite import InviteService
+from app.core.dependencies import get_auth_service, get_current_user_id
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-# Rate limiter instance
-limiter = Limiter(key_func=get_remote_address)
+
+def _get_client_ip(request: Request) -> str | None:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client:
+        return request.client.host
+    return None
 
 
-@router.post(
-    "/register",
-    response_model=TokenResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Register as org owner",
-)
-@limiter.limit("3/minute")
-async def register(
+# ── Magic Link ────────────────────────────────────────────────────
+
+
+@router.post("/magic-link", response_model=MessageResponse)
+async def request_magic_link(
+    data: MagicLinkRequest,
     request: Request,
-    user_data: UserCreate,
-    auth_service: AuthService = Depends(get_auth_service),
-    invite_service: InviteService = Depends(get_invite_service),
-) -> TokenResponse:
-    """Register a new user and create their organization."""
-    result = await auth_service.register(user_data)
+    auth_service=Depends(get_auth_service),
+):
+    ip = _get_client_ip(request)
+    await auth_service.request_magic_link(data.email, ip_address=ip)
+    return {"message": "If that email is valid, a magic link has been sent."}
 
-    # Create invitations for team members (if any)
-    if user_data.invites:
-        await invite_service.create_invites_for_registration(
-            org_id=result.organization_id,
-            invites=user_data.invites,
-            inviter_id=result.user_id,
-        )
 
-    return TokenResponse(
-        access_token=result.access_token,
-        refresh_token=result.refresh_token,
+@router.post("/verify", response_model=TokenResponse)
+async def verify_magic_link(
+    data: VerifyRequest,
+    request: Request,
+    auth_service=Depends(get_auth_service),
+):
+    ip = _get_client_ip(request)
+    device = data.device_info or request.headers.get("user-agent", "")[:255]
+    access_token, refresh_token, _ = await auth_service.verify_magic_link(
+        token=data.token,
+        device_info=device,
+        ip_address=ip,
+        remember_me=data.remember_me,
     )
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
-@router.post(
-    "/register/invite",
-    response_model=LoginResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Register with invitation",
-)
-@limiter.limit("5/minute")
-async def register_with_invite(
+# ── Password Login ────────────────────────────────────────────────
+
+
+@router.post("/login", response_model=TokenResponse)
+async def login_with_password(
+    data: PasswordLoginRequest,
     request: Request,
-    user_data: UserCreateInvite,
-    token: str = Query(..., description="Invitation token"),
-    invite_service: InviteService = Depends(get_invite_service),
-) -> LoginResponse:
-    """Register using an invitation token."""
-    return await invite_service.register_with_invite(user_data, token)
+    auth_service=Depends(get_auth_service),
+):
+    ip = _get_client_ip(request)
+    device = request.headers.get("user-agent", "")[:255]
+    access_token, refresh_token, _ = await auth_service.login_with_password(
+        email=data.email,
+        password=data.password,
+        device_info=device,
+        ip_address=ip,
+        remember_me=data.remember_me,
+    )
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
-@router.get(
-    "/invites/{token}",
-    response_model=InviteValidation,
-    summary="Validate invitation",
-)
-async def validate_invite(
-    token: str,
-    invite_service: InviteService = Depends(get_invite_service),
-) -> InviteValidation:
-    """Validate an invitation token and get details."""
-    return await invite_service.validate_invite(token)
+# ── Token Management ──────────────────────────────────────────────
 
 
-@router.post(
-    "/accept-invite",
-    response_model=OrganizationBrief,
-    summary="Accept invitation (existing user)",
-)
-async def accept_invite(
-    token: str = Query(..., description="Invitation token"),
-    user_id: str = Depends(get_current_user_id),
-    invite_service: InviteService = Depends(get_invite_service),
-) -> OrganizationBrief:
-    """Accept an invitation to join an organization. Requires authentication."""
-    return await invite_service.accept_invite(user_id, token)
-
-
-@router.post(
-    "/organizations",
-    response_model=OrganizationResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Create a new organization",
-)
-async def create_organization(
-    org_data: OrganizationCreate,
-    user_id: str = Depends(get_current_user_id),
-    auth_service: AuthService = Depends(get_auth_service),
-    invite_service: InviteService = Depends(get_invite_service),
-) -> OrganizationResponse:
-    """Create a new organization. The authenticated user becomes the owner."""
-    result = await auth_service.create_organization(user_id, org_data)
-
-    # Create invitations for team members (if any)
-    if org_data.invites:
-        await invite_service.create_invites_for_registration(
-            org_id=result.id,
-            invites=org_data.invites,
-            inviter_id=uuid.UUID(user_id),
-        )
-
-    return result
-
-
-@router.post(
-    "/login",
-    response_model=LoginResponse,
-    summary="Login",
-)
-@limiter.limit("5/minute")
-async def login(
-    request: Request,
-    credentials: UserLogin,
-    auth_service: AuthService = Depends(get_auth_service),
-) -> LoginResponse:
-    """Authenticate with email and password."""
-    return await auth_service.login(credentials)
-
-
-@router.post(
-    "/refresh",
-    response_model=TokenResponse,
-    summary="Refresh token",
-)
+@router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
-    request_body: RefreshTokenRequest,
-    auth_service: AuthService = Depends(get_auth_service),
-) -> TokenResponse:
-    """Get a new access token using a valid refresh token."""
-    return await auth_service.refresh_tokens(request_body.refresh_token)
+    data: RefreshTokenRequest,
+    auth_service=Depends(get_auth_service),
+):
+    access_token, refresh_token, _ = await auth_service.refresh_token(
+        data.refresh_token
+    )
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
-@router.get(
-    "/me",
-    response_model=UserResponse,
-    summary="Get current user",
-)
+@router.post("/validate", response_model=ValidateResponse)
+async def validate_session(
+    data: ValidateRequest,
+    auth_service=Depends(get_auth_service),
+):
+    """Check if a session is alive without rotating tokens."""
+    valid = await auth_service.validate_session(data.refresh_token)
+    return ValidateResponse(valid=valid)
+
+
+@router.post("/logout", response_model=MessageResponse)
+async def logout(
+    data: RefreshTokenRequest,
+    auth_service=Depends(get_auth_service),
+):
+    await auth_service.logout(data.refresh_token)
+    return {"message": "Logged out successfully"}
+
+
+# ── Session Management ────────────────────────────────────────────
+
+
+@router.get("/sessions", response_model=list[SessionResponse])
+async def list_sessions(
+    user_id: str = Depends(get_current_user_id),
+    auth_service=Depends(get_auth_service),
+):
+    """List active sessions for the current user."""
+    sessions = await auth_service.get_active_sessions(uuid.UUID(user_id))
+    return sessions
+
+
+@router.delete("/sessions/{session_id}", response_model=MessageResponse)
+async def revoke_session(
+    session_id: uuid.UUID,
+    user_id: str = Depends(get_current_user_id),
+    auth_service=Depends(get_auth_service),
+):
+    """Revoke a specific session for the current user."""
+    revoked = await auth_service.revoke_session(uuid.UUID(user_id), session_id)
+    if not revoked:
+        from app.core.exceptions import NotFoundError
+        raise NotFoundError("Session")
+    return {"message": "Session revoked"}
+
+
+# ── User Info ─────────────────────────────────────────────────────
+
+
+@router.get("/me", response_model=UserResponse)
 async def get_me(
     user_id: str = Depends(get_current_user_id),
-    auth_service: AuthService = Depends(get_auth_service),
-) -> UserResponse:
-    """Get the currently authenticated user's profile."""
-    user = await auth_service.get_current_user(user_id)
-    return UserResponse.model_validate(user)
-
-
-@router.post(
-    "/logout",
-    response_model=MessageResponse,
-    summary="Logout",
-)
-async def logout() -> MessageResponse:
-    """Logout the current user (client-side token cleanup)."""
-    return MessageResponse(message="Successfully logged out")
+    auth_service=Depends(get_auth_service),
+):
+    user = await auth_service.user_repo.get_by_id(uuid.UUID(user_id))
+    return user
