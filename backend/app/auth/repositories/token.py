@@ -259,6 +259,23 @@ class TokenRepository:
             self.session.add(t)
         await self.session.flush()
 
+    async def revoke_all_user_sessions(self, user_id: UUID) -> int:
+        """Revoke all active sessions for a user. Returns count revoked."""
+        now = datetime.now(timezone.utc)
+        stmt = select(RefreshToken).where(
+            RefreshToken.user_id == user_id,
+            RefreshToken.is_revoked == False,
+            RefreshToken.expires_at > now,
+        )
+        result = await self.session.execute(stmt)
+        count = 0
+        for t in result.scalars().all():
+            t.is_revoked = True
+            self.session.add(t)
+            count += 1
+        await self.session.flush()
+        return count
+
     # ── Magic Link CRUD ───────────────────────────────────────────
 
     async def count_recent_magic_links(self, email: str, since: datetime) -> int:

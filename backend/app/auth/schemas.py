@@ -191,5 +191,38 @@ class SessionResponse(BaseModel):
     ip_address: str | None = None
     last_used_at: datetime
     created_at: datetime
+    is_current: bool = False
 
     model_config = {"from_attributes": True}
+
+
+# === Account / Profile Schemas ===
+
+
+class ProfileResponse(BaseModel):
+    """Full user profile for account settings."""
+
+    id: uuid.UUID
+    email: str
+    first_name: str
+    last_name: str | None = None
+    display_name: str
+    picture: str | None = None
+    email_verified: bool
+    has_password: bool
+    created_at: datetime | None = None
+    last_login_at: datetime | None = None
+
+
+class UpdateProfileRequest(BaseModel):
+    """Request to update user profile (display name)."""
+
+    name: str = Field(min_length=1, max_length=200)
+
+
+class SetPasswordRequest(BaseModel):
+    """Request to set or change password."""
+
+    new_password: str = Field(min_length=8, max_length=100)
+    confirm_password: str = Field(min_length=8, max_length=100)
+    current_password: str | None = None

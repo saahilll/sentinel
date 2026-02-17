@@ -14,6 +14,7 @@ from app.core.exceptions import (
     RateLimitError,
     SentinelException,
     TokenExpiredError,
+    ValidationError,
 )
 
 
@@ -79,6 +80,16 @@ async def rate_limit_error_handler(
     )
 
 
+async def validation_error_handler(
+    request: Request, exc: ValidationError
+) -> JSONResponse:
+    """Handle validation failures → 422."""
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.message},
+    )
+
+
 async def sentinel_error_handler(
     request: Request, exc: SentinelException
 ) -> JSONResponse:
@@ -97,4 +108,5 @@ def register_exception_handlers(app) -> None:
     app.add_exception_handler(NotFoundError, not_found_error_handler)
     app.add_exception_handler(ConflictError, conflict_error_handler)
     app.add_exception_handler(RateLimitError, rate_limit_error_handler)
+    app.add_exception_handler(ValidationError, validation_error_handler)
     app.add_exception_handler(SentinelException, sentinel_error_handler)

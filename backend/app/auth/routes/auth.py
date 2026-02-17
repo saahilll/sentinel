@@ -12,9 +12,12 @@ from app.auth.schemas import (
     MagicLinkRequest,
     MessageResponse,
     PasswordLoginRequest,
+    ProfileResponse,
     RefreshTokenRequest,
     SessionResponse,
+    SetPasswordRequest,
     TokenResponse,
+    UpdateProfileRequest,
     UserResponse,
     ValidateRequest,
     ValidateResponse,
@@ -124,12 +127,28 @@ async def logout(
 
 @router.get("/sessions", response_model=list[SessionResponse])
 async def list_sessions(
+    request: Request,
     user_id: str = Depends(get_current_user_id),
     auth_service=Depends(get_auth_service),
 ):
-    """List active sessions for the current user."""
+    """List active sessions for the current user with is_current flag."""
     sessions = await auth_service.get_active_sessions(uuid.UUID(user_id))
-    return sessions
+
+    # Determine the current session by matching device+IP
+    current_device = (request.headers.get("user-agent", "")[:255]).strip()
+    current_ip = _get_client_ip(request)
+
+    results = []
+    for s in sessions:
+        is_current = (
+            s.device_info.strip() == current_device
+            and (s.ip_address or "") == (current_ip or "")
+        )
+        session_data = SessionResponse.model_validate(s)
+        session_data.is_current = is_current
+        results.append(session_data)
+
+    return results
 
 
 @router.delete("/sessions/{session_id}", response_model=MessageResponse)
@@ -146,6 +165,16 @@ async def revoke_session(
     return {"message": "Session revoked"}
 
 
+@router.post("/logout-all", response_model=MessageResponse)
+async def logout_all(
+    user_id: str = Depends(get_current_user_id),
+    auth_service=Depends(get_auth_service),
+):
+    """Revoke all active sessions for the current user."""
+    count = await auth_service.logout_all(uuid.UUID(user_id))
+    return {"message": f"{count} sessions revoked"}
+
+
 # ── User Info ─────────────────────────────────────────────────────
 
 
@@ -156,3 +185,52 @@ async def get_me(
 ):
     user = await auth_service.user_repo.get_by_id(uuid.UUID(user_id))
     return user
+
+
+# ── Profile Management ────────────────────────────────────────────
+
+
+@router.get("/profile", response_model=ProfileResponse)
+async def get_profile(
+    user_id: str = Depends(get_current_user_id),
+    auth_service=Depends(get_auth_service),
+):
+    """Get full profile for account settings."""
+    return await auth_service.get_profile(uuid.UUID(user_id))
+
+
+@router.patch("/profile", response_model=ProfileResponse)
+async def update_profile(
+    data: UpdateProfileRequest,
+    user_id: str = Depends(get_current_user_id),
+    auth_service=Depends(get_auth_service),
+):
+    """Update user's display name."""
+    return await auth_service.update_profile(uuid.UUID(user_id), data.name)
+
+
+@router.post("/profile/password", response_model=MessageResponse)
+async def set_password(
+    data: SetPasswordRequest,
+    user_id: str = Depends(get_current_user_id),
+    auth_service=Depends(get_auth_service),
+):
+    """Set or change user password."""
+    await auth_service.set_password(
+        user_id=uuid.UUID(user_id),
+        new_password=data.new_password,
+        confirm_password=data.confirm_password,
+        current_password=data.current_password,
+    )
+    return {"message": "Password updated successfully"}
+
+
+@router.delete("/profile", response_model=MessageResponse)
+async def delete_account(
+    user_id: str = Depends(get_current_user_id),
+    auth_service=Depends(get_auth_service),
+):
+    """Soft-delete user account and revoke all sessions."""
+    await auth_service.delete_account(uuid.UUID(user_id))
+    return {"message": "Account deleted"}
+

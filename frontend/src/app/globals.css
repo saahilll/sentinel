@@ -995,26 +995,41 @@ body {
 }
 
 /* Settings Page */
+.standalone-content>.settings-page {
+  padding: 0;
+  max-width: none;
+  margin: 0;
+}
+
 .settings-page {
   display: flex;
   flex-direction: column;
   height: calc(100vh - var(--navbar-height));
   overflow: hidden;
   overscroll-behavior: contain;
-  padding: 32px;
-  padding-bottom: 0;
+  padding: 32px 32px 0;
 }
 
-.settings-page > .page-header {
+.settings-page>.page-header {
   border-bottom: 1px solid var(--border-color);
-  padding-bottom: 20px;
+  padding: 0 32px 20px;
   margin-bottom: 0;
   flex-shrink: 0;
+}
+
+.settings-page .page-title {
+  max-width: 960px;
+  margin: 0 auto;
 }
 
 .settings-page-body {
   display: flex;
   flex: 1;
+  gap: 48px;
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 32px;
   overflow: hidden;
   overscroll-behavior: contain;
 }
@@ -1032,7 +1047,6 @@ body {
   width: 200px;
   flex-shrink: 0;
   padding: 24px 0;
-  margin-right: 48px;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -2163,6 +2177,350 @@ body {
   justify-content: flex-end;
   margin-top: 4px;
 }
+
+/* Settings Content Area */
+.settings-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 24px 0 80px 0;
+  overscroll-behavior: contain;
+}
+
+/* Settings Sidebar Nav */
+.settings-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Settings Buttons */
+.settings-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  text-decoration: none;
+  line-height: 1.4;
+}
+
+.settings-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.settings-btn-primary {
+  background-color: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.settings-btn-primary:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.settings-btn-secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.settings-btn-secondary:hover:not(:disabled) {
+  background-color: var(--bg-hover);
+  border-color: var(--border-hover);
+}
+
+.settings-btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: transparent;
+}
+
+.settings-btn-ghost:hover:not(:disabled) {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}
+
+.settings-btn-danger {
+  background-color: var(--danger);
+  color: white;
+  border-color: var(--danger);
+}
+
+.settings-btn-danger:hover:not(:disabled) {
+  background-color: #e03e3e;
+}
+
+.settings-btn-danger-outline {
+  background: transparent;
+  color: var(--danger);
+  border-color: rgba(255, 68, 68, 0.3);
+}
+
+.settings-btn-danger-outline:hover:not(:disabled) {
+  background-color: rgba(255, 68, 68, 0.1);
+  border-color: var(--danger);
+}
+
+.settings-btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.settings-btn-icon {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+}
+
+/* Button Loading */
+.btn-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* Confirm Dialog */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.15s ease;
+}
+
+.dialog-content {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  margin: 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  animation: slideUp 0.2s ease;
+}
+
+.dialog-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.dialog-close:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.dialog-header {
+  padding: 32px 24px 20px;
+  text-align: center;
+}
+
+.dialog-icon-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: rgba(255, 68, 68, 0.1);
+  color: var(--danger);
+  margin-bottom: 16px;
+}
+
+.dialog-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.dialog-description {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.dialog-input-section {
+  padding: 0 24px;
+}
+
+.dialog-input-label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.dialog-input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.dialog-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 112, 243, 0.1);
+}
+
+.dialog-input::placeholder {
+  color: var(--text-muted);
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px 24px;
+}
+
+/* Settings Toast */
+.settings-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1100;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  animation: toastSlideUp 0.25s ease;
+  pointer-events: none;
+}
+
+.settings-toast-success {
+  background-color: var(--success, #00c853);
+  color: white;
+}
+
+.settings-toast-error {
+  background-color: var(--danger);
+  color: white;
+}
+
+@keyframes toastSlideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Danger Zone */
+.danger-zone-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.danger-zone-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.danger-zone-info {
+  flex: 1;
+}
+
+.danger-zone-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.danger-zone-description {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Spin animation */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 
 /* API Keys Section */
 
@@ -5155,7 +5513,7 @@ a.settings-btn {
   gap: 8px;
 }
 
-.endpoint-call-meta-grid > div {
+.endpoint-call-meta-grid>div {
   border: 1px solid var(--border-color);
   border-radius: 10px;
   background: var(--bg-primary);
@@ -5881,7 +6239,7 @@ a.settings-btn {
   overflow: hidden;
 }
 
-.filter-dropdown > summary {
+.filter-dropdown>summary {
   list-style: none;
   cursor: pointer;
   padding: 10px;
@@ -5890,7 +6248,7 @@ a.settings-btn {
   font-weight: 600;
 }
 
-.filter-dropdown > summary::-webkit-details-marker {
+.filter-dropdown>summary::-webkit-details-marker {
   display: none;
 }
 

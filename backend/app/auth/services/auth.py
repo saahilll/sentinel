@@ -13,7 +13,7 @@ from app.auth.models.user import User
 from app.auth.repositories.token import TokenRepository, MAGIC_LINK_RATE_LIMIT
 from app.auth.repositories.user import UserRepository
 from app.core.exceptions import AuthenticationError, RateLimitError
-from app.core.security import create_access_token, verify_password
+from app.core.security import create_access_token, verify_password, hash_password
 
 logger = logging.getLogger(__name__)
 
@@ -152,3 +152,108 @@ class AuthService:
         token_obj = await self.token_repo.get_refresh_token(raw_refresh_token)
         if token_obj:
             await self.token_repo.revoke_refresh_token(token_obj)
+
+    # ── Profile Management ────────────────────────────────────────
+
+    async def get_profile(self, user_id: UUID) -> dict:
+        """Get full profile for account settings page."""
+        from app.core.exceptions import NotFoundError
+
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
+            raise NotFoundError("User")
+
+        # Build display name from first/last name
+        display_name = user.first_name or ""
+        if user.last_name:
+            display_name = f"{display_name} {user.last_name}".strip()
+        if not display_name:
+            display_name = user.email.split("@")[0]
+
+        return {
+            "id": user.id,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "display_name": display_name,
+            "picture": user.avatar_url,
+            "email_verified": user.email_verified,
+            "has_password": bool(user.hashed_password and user.hashed_password != "!"),
+            "created_at": user.created_at,
+            "last_login_at": user.last_login_at,
+        }
+
+    async def update_profile(self, user_id: UUID, name: str) -> dict:
+        """Update user's display name (split into first_name/last_name)."""
+        from app.core.exceptions import NotFoundError
+
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
+            raise NotFoundError("User")
+
+        # Parse display name into first/last name
+        parts = name.strip().split(maxsplit=1)
+        user.first_name = parts[0]
+        user.last_name = parts[1] if len(parts) > 1 else None
+
+        await self.user_repo.update(user)
+        logger.info(f"Profile updated for user {user_id}")
+
+        return await self.get_profile(user_id)
+
+    async def set_password(
+        self,
+        user_id: UUID,
+        new_password: str,
+        confirm_password: str,
+        current_password: str | None = None,
+    ) -> None:
+        """Set or change password with validation."""
+        from app.core.exceptions import NotFoundError, ValidationError
+
+        if new_password != confirm_password:
+            raise ValidationError("Passwords do not match")
+
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
+            raise NotFoundError("User")
+
+        has_password = bool(user.hashed_password and user.hashed_password != "!")
+
+        # If user already has a password, require current password
+        if has_password:
+            if not current_password:
+                raise AuthenticationError("Current password is required")
+            if not verify_password(current_password, user.hashed_password):
+                raise AuthenticationError("Current password is incorrect")
+
+        user.hashed_password = hash_password(new_password)
+        await self.user_repo.update(user)
+        logger.info(f"Password {'changed' if has_password else 'set'} for user {user_id}")
+
+    async def delete_account(self, user_id: UUID) -> None:
+        """Soft-delete account: deactivate and revoke all sessions."""
+        from app.core.exceptions import NotFoundError
+
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
+            raise NotFoundError("User")
+
+        # Soft-delete: deactivate instead of hard delete
+        user.is_active = False
+        user.deactivated_at = datetime.now(timezone.utc)
+        await self.user_repo.update(user)
+
+        # Revoke all sessions
+        revoked = await self.token_repo.revoke_all_user_sessions(user_id)
+        logger.info(
+            f"Account deactivated for user {user_id}, "
+            f"{revoked} sessions revoked"
+        )
+
+    async def logout_all(self, user_id: UUID) -> int:
+        """Revoke all active sessions for a user."""
+        count = await self.token_repo.revoke_all_user_sessions(user_id)
+        logger.info(f"All sessions revoked for user {user_id}: {count} revoked")
+        return count
+

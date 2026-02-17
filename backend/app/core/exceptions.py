@@ -55,6 +55,13 @@ class ConflictError(SentinelException):
         super().__init__(message)
 
 
+class ValidationError(SentinelException):
+    """Raised when input validation fails."""
+
+    def __init__(self, message: str = "Validation error"):
+        super().__init__(message)
+
+
 # HTTP Exception factories for FastAPI
 def credentials_exception() -> HTTPException:
     """Standard 401 exception for invalid credentials."""
