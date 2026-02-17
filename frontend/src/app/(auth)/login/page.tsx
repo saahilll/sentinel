@@ -1,154 +1,338 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import * as z from "zod"
-import { Loader2, Mail } from "lucide-react"
-import { toast } from "sonner"
+import { useState } from "react";
+import { ArrowRight, Loader2, Mail, Eye, EyeOff, KeyRound } from "lucide-react";
 
-import { Button } from "@/components/ui/button"
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import api from "@/lib/api"
+type ViewState = "default" | "magic-link-sent" | "forgot-sent";
+type AuthMode = "magic" | "password";
 
-const formSchema = z.object({
-    email: z.string().min(1, { message: "Email is required." }).email({
-        message: "Please enter a valid email address.",
-    }),
-    password: z.string().min(1, "Password is required.").min(8, {
-        message: "Password must be at least 8 characters.",
-    }),
-})
+function BrandingPanel() {
+    return (
+        <div className="auth-branding">
+            <div className="auth-branding-content">
+                <p className="auth-branding-logo">Sentinel</p>
+                <h2 className="auth-branding-headline">
+                    AI-Native Incident<br />Management at Scale.
+                </h2>
+                <p className="auth-branding-sub">
+                    Orchestrate response, automate triage, and maintain 99.99% uptime with the world&apos;s most advanced ITSM platform.
+                </p>
+                <div className="auth-branding-features">
+                    <div className="auth-branding-feature"><span>Predictive Anomalies</span></div>
+                    <div className="auth-branding-feature"><span>Automated Root Cause Analysis</span></div>
+                    <div className="auth-branding-feature"><span>Global SLA Monitoring</span></div>
+                </div>
+            </div>
+            <div className="auth-branding-footer">
+                <a href="mailto:support@sentinel.ai" className="auth-footer-link">Support</a>
+                <span className="auth-footer-sep" />
+                <a href="#" className="auth-footer-link">Terms</a>
+                <span className="auth-footer-sep" />
+                <a href="#" className="auth-footer-link">Privacy</a>
+            </div>
+        </div>
+    );
+}
 
 export default function LoginPage() {
-    const router = useRouter()
-    const [isLoading, setIsLoading] = React.useState(false)
+    const [view, setView] = useState<ViewState>("default");
+    const [authMode, setAuthMode] = useState<AuthMode>("magic");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [rememberMe, setRememberMe] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState("");
 
-    const form = useForm<z.infer<typeof formSchema>>({
-        resolver: zodResolver(formSchema),
-        defaultValues: {
-            email: "",
-            password: "",
-        },
-    })
+    const handlePasswordLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError("");
+        setIsSubmitting(true);
 
-
-
-    async function onSubmit(values: z.infer<typeof formSchema>) {
-        setIsLoading(true)
         try {
-            const response = await api.post("/auth/login", {
-                username: values.email,
-                email: values.email,
-                password: values.password,
-            })
-            const { access_token } = response.data
-            localStorage.setItem("access_token", access_token)
-            toast.success("Signed in successfully")
-            router.push("/dashboard")
-        } catch (error: any) {
-            console.error(error)
-            const message = error.response?.data?.detail || "Something went wrong."
+            const response = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password, remember_me: rememberMe }),
+            });
 
-            if (error.response?.status === 401) {
-                form.setError("email", { message: "Invalid credentials" })
-                form.setError("password", { message: "Invalid credentials" })
-            } else {
-                toast.error(message)
+            const data = await response.json();
+
+            if (!response.ok) {
+                setError(data.error || "Invalid email or password");
+                return;
             }
+
+            window.location.href = "/dashboard";
+        } catch {
+            setError("Something went wrong. Please try again.");
         } finally {
-            setIsLoading(false)
+            setIsSubmitting(false);
         }
+    };
+
+    const handleMagicLink = async () => {
+        if (!email) {
+            setError("Please enter your email first");
+            return;
+        }
+        setError("");
+        setIsSubmitting(true);
+
+        try {
+            const response = await fetch("/api/auth/magic-link", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                setError(data.error || "Failed to send magic link");
+                return;
+            }
+
+            setView("magic-link-sent");
+        } catch {
+            setError("Something went wrong. Please try again.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleForgotPassword = async () => {
+        if (!email) {
+            setError("Please enter your email first");
+            return;
+        }
+        setError("");
+        setIsSubmitting(true);
+
+        try {
+            const response = await fetch("/api/auth/magic-link", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, flow: "reset" }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                setError(data.error || "Failed to send reset link");
+                return;
+            }
+
+            setView("forgot-sent");
+        } catch {
+            setError("Something went wrong. Please try again.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    if (view === "magic-link-sent" || view === "forgot-sent") {
+        const isForgot = view === "forgot-sent";
+        return (
+            <div className="auth-split">
+                <BrandingPanel />
+                <div className="auth-panel">
+                    <div className="auth-panel-inner">
+                        <div className="auth-card auth-status-card auth-status-minimal">
+                            <div className="auth-icon-primary auth-status-icon">
+                                <Mail size={24} strokeWidth={1.7} />
+                            </div>
+                            <p className="auth-status-kicker">{isForgot ? "Reset Link Sent" : "Magic Link Sent"}</p>
+                            <h1 className="auth-title">Check your email</h1>
+                            <p className="auth-description auth-status-description">
+                                {isForgot ? "Open the link to continue password reset." : "Open the link to sign in."}
+                            </p>
+                            <p className="auth-status-email">
+                                <span className="auth-status-email-label">Sent to</span>
+                                <strong>{email}</strong>
+                            </p>
+                            <div className="auth-status-divider" aria-hidden="true" />
+                            <div className="auth-status-actions auth-status-actions-minimal">
+                                <button
+                                    type="button"
+                                    className="auth-link-btn"
+                                    onClick={() => {
+                                        if (isForgot) {
+                                            void handleForgotPassword();
+                                        } else {
+                                            void handleMagicLink();
+                                        }
+                                    }}
+                                    disabled={isSubmitting}
+                                >
+                                    {isSubmitting ? "Sending..." : "Resend link"}
+                                </button>
+                                <button
+                                    className="auth-link-btn"
+                                    onClick={() => {
+                                        setView("default");
+                                        setPassword("");
+                                        setError("");
+                                    }}
+                                >
+                                    Change email
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col space-y-2 text-center">
-                <h1 className="text-2xl font-semibold tracking-tight text-white mb-2">Welcome back to Sentinel</h1>
-                <p className="text-sm text-zinc-400">
-                    Enter your credentials to access the platform
-                </p>
-            </div>
-
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel className="text-zinc-400">Email</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        placeholder="you@company.com"
-                                        {...field}
-                                        className="bg-black border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-blue-600 h-10"
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="password"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel className="text-zinc-400">Password</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        type="password"
-                                        placeholder="Enter your password"
-                                        {...field}
-                                        className="bg-black border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-blue-600 h-10"
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center space-x-2">
-                            {/* Mock Checkbox for visual fidelity */}
-                            <input type="checkbox" id="remember" className="rounded border-zinc-700 bg-zinc-900 data-[state=checked]:bg-blue-600" />
-                            <label htmlFor="remember" className="text-zinc-400 font-medium cursor-pointer">Remember me</label>
+        <div className="auth-split">
+            <BrandingPanel />
+            <div className="auth-panel">
+                <div className="auth-panel-inner">
+                    <div className="auth-card">
+                        <p className="auth-mobile-logo">Sentinel</p>
+                        <div className="auth-header">
+                            <h1 className="auth-title">Welcome</h1>
+                            <p className="auth-description">
+                                Use email link to sign in or create your account.
+                            </p>
                         </div>
-                        <Link href="/forgot-password" className="text-zinc-500 hover:text-zinc-300">
-                            Forgot password?
-                        </Link>
+
+                        <div className={`auth-mode-switch auth-mode-${authMode}`} role="tablist" aria-label="Authentication mode">
+                            <span className="auth-mode-indicator" aria-hidden="true" />
+                            <button
+                                type="button"
+                                className={`auth-mode-btn${authMode === "magic" ? " active" : ""}`}
+                                onClick={() => {
+                                    setAuthMode("magic");
+                                    setError("");
+                                }}
+                                role="tab"
+                                aria-selected={authMode === "magic"}
+                            >
+                                <span className="auth-mode-btn-icon" aria-hidden="true">
+                                    <Mail size={13} />
+                                </span>
+                                <span>Email link</span>
+                            </button>
+                            <button
+                                type="button"
+                                className={`auth-mode-btn${authMode === "password" ? " active" : ""}`}
+                                onClick={() => {
+                                    setAuthMode("password");
+                                    setError("");
+                                }}
+                                role="tab"
+                                aria-selected={authMode === "password"}
+                            >
+                                <span className="auth-mode-btn-icon" aria-hidden="true">
+                                    <KeyRound size={13} />
+                                </span>
+                                <span>Password</span>
+                            </button>
+                        </div>
+
+                        <form onSubmit={authMode === "password" ? handlePasswordLogin : (e) => { e.preventDefault(); void handleMagicLink(); }} className="auth-form auth-form-tight">
+                            <div className="auth-input-group">
+                                <label htmlFor="email" className="auth-label">Email</label>
+                                <input
+                                    id="email"
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="you@company.com"
+                                    className="auth-input"
+                                    required
+                                    autoFocus
+                                    autoComplete="email"
+                                    disabled={isSubmitting}
+                                />
+                            </div>
+
+                            <div className={`auth-password-region${authMode === "password" ? " open" : ""}`} aria-hidden={authMode !== "password"}>
+                                <div className="auth-password-region-inner">
+                                    <div className="auth-input-group">
+                                        <label htmlFor="password" className="auth-label">Password</label>
+                                        <div className="auth-input-wrapper">
+                                            <input
+                                                id="password"
+                                                type={showPassword ? "text" : "password"}
+                                                value={password}
+                                                onChange={(e) => setPassword(e.target.value)}
+                                                placeholder="Enter your password"
+                                                className="auth-input"
+                                                required={authMode === "password"}
+                                                autoComplete="current-password"
+                                                disabled={isSubmitting || authMode !== "password"}
+                                            />
+                                            <button
+                                                type="button"
+                                                className="auth-input-toggle"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                tabIndex={-1}
+                                            >
+                                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="auth-form-options">
+                                        <label className="auth-checkbox-label">
+                                            <input
+                                                type="checkbox"
+                                                checked={rememberMe}
+                                                onChange={(e) => setRememberMe(e.target.checked)}
+                                                disabled={isSubmitting}
+                                            />
+                                            <span className="auth-checkbox-box">
+                                                <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                                                    <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                </svg>
+                                            </span>
+                                            Remember me
+                                        </label>
+                                        <button
+                                            type="button"
+                                            className="auth-forgot-link"
+                                            onClick={handleForgotPassword}
+                                            disabled={isSubmitting || authMode !== "password"}
+                                        >
+                                            Forgot password?
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p className={`auth-inline-note auth-inline-note-magic${authMode === "magic" ? " show" : ""}`}>
+                                New here? No signup form needed. We create your account after email verification.
+                            </p>
+
+                            {error && <p className="auth-error">{error}</p>}
+
+                            <button
+                                type="submit"
+                                className="auth-submit-btn"
+                                disabled={isSubmitting || !email || (authMode === "password" && !password)}
+                            >
+                                {isSubmitting ? (
+                                    <Loader2 size={16} className="animate-spin" />
+                                ) : authMode === "magic" ? (
+                                    <>
+                                        Send secure link
+                                        <ArrowRight size={14} />
+                                    </>
+                                ) : (
+                                    <>
+                                        Log in
+                                        <ArrowRight size={14} />
+                                    </>
+                                )}
+                            </button>
+                        </form>
                     </div>
-
-                    <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium h-10" type="submit" disabled={isLoading}>
-                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Log in &rarr;
-                    </Button>
-                </form>
-            </Form>
-
-            <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-zinc-800" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-black px-2 text-zinc-500">Or</span>
                 </div>
             </div>
-
-            <Button variant="outline" className="w-full border-zinc-800 text-zinc-300 hover:bg-zinc-900 hover:text-white bg-transparent h-10" disabled={isLoading}>
-                <Mail className="mr-2 h-4 w-4" />
-                Sign in with magic link
-            </Button>
         </div>
-    )
+    );
 }

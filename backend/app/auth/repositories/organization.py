@@ -39,3 +39,12 @@ class OrganizationRepository:
         """Check if an organization with the given slug exists."""
         org = await self.get_by_slug(slug)
         return org is not None
+
+    async def generate_unique_slug(self, base_slug: str) -> str:
+        """Generate a unique slug, appending -2, -3, etc. on collision."""
+        slug = base_slug
+        counter = 2
+        while await self.exists_by_slug(slug):
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        return slug

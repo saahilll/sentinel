@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 def _send_magic_link_email(email: str, token: str) -> None:
     print(
         f"MAGIC LINK for {email}: "
-        f"http://localhost:3000/auth/verify?token={token}&flow=signup"
+        f"http://localhost:3000/verify?token={token}&flow=signup"
     )
 
 

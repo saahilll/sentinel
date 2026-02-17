@@ -2,8 +2,6 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import api from "@/lib/api";
-import { clearSession, isAuthenticated as checkAuth } from "@/lib/session";
 
 interface AuthUser {
     id: string;
@@ -39,18 +37,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const fetchUser = useCallback(async () => {
         try {
-            if (!checkAuth()) {
+            // Call the BFF /api/auth/me endpoint — cookie is sent automatically
+            const response = await fetch("/api/auth/me", { credentials: "include" });
+
+            if (!response.ok) {
                 setUser(null);
                 setIsLoading(false);
                 return;
             }
 
-            // Uses api instance which has the auto-refresh interceptor
-            const response = await api.get("/api/auth/me");
-            setUser(response.data);
+            const data = await response.json();
+            setUser(data);
         } catch {
             setUser(null);
-            clearSession();
         } finally {
             setIsLoading(false);
         }
@@ -66,21 +65,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const logout = useCallback(async () => {
         try {
-            const refreshToken = typeof window !== "undefined"
-                ? localStorage.getItem("refresh_token")
-                : null;
-
-            if (refreshToken) {
-                await api.post("/api/auth/logout", {
-                    refresh_token: refreshToken,
-                });
-            }
+            await fetch("/api/auth/logout", {
+                method: "POST",
+                credentials: "include",
+            });
         } catch {
-            // Ignore logout errors — we clear the session anyway
+            // Ignore logout errors — cookie is cleared server-side
         } finally {
-            clearSession();
             setUser(null);
-            router.push("/auth/login");
+            router.push("/login");
         }
     }, [router]);
 

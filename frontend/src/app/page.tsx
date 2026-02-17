@@ -1,22 +1,24 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 
 export default function Home() {
   const router = useRouter()
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token")
-    if (token) {
-      router.push("/dashboard")
-    } else {
-      router.push("/login")
-    }
-    // We don't really need to set loading false because we strictly redirect
-    // But for safety:
-    setLoading(false)
+    // Check session via BFF endpoint
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((res) => {
+        if (res.ok) {
+          router.push("/dashboard")
+        } else {
+          router.push("/login")
+        }
+      })
+      .catch(() => {
+        router.push("/login")
+      })
   }, [router])
 
   return (

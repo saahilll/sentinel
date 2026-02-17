@@ -10,19 +10,19 @@ function BrandingPanel() {
             <div className="auth-branding-content">
                 <p className="auth-branding-logo">Sentinel</p>
                 <h2 className="auth-branding-headline">
-                    AI-Native Incident Management<br />for modern engineering teams.
+                    AI-Native Incident<br />Management at Scale.
                 </h2>
                 <p className="auth-branding-sub">
-                    Detect, resolve, and prevent incidents with AI-driven insights.
+                    Orchestrate response, automate triage, and maintain 99.99% uptime with the world&apos;s most advanced ITSM platform.
                 </p>
                 <div className="auth-branding-features">
-                    <div className="auth-branding-feature"><span>Real-time alerts</span></div>
-                    <div className="auth-branding-feature"><span>Automated runbooks</span></div>
-                    <div className="auth-branding-feature"><span>Post-incident analysis</span></div>
+                    <div className="auth-branding-feature"><span>Predictive Anomalies</span></div>
+                    <div className="auth-branding-feature"><span>Automated Root Cause Analysis</span></div>
+                    <div className="auth-branding-feature"><span>Global SLA Monitoring</span></div>
                 </div>
             </div>
             <div className="auth-branding-footer">
-                <a href="#" className="auth-footer-link">Support</a>
+                <a href="mailto:support@sentinel.ai" className="auth-footer-link">Support</a>
                 <span className="auth-footer-sep" />
                 <a href="#" className="auth-footer-link">Terms</a>
                 <span className="auth-footer-sep" />
@@ -54,22 +54,16 @@ function VerifyContent() {
                     body: JSON.stringify({ token, flow }),
                 });
 
-                const data = await response.json();
-
                 if (response.ok) {
-                    // Store tokens
-                    if (data.access_token) {
-                        localStorage.setItem("access_token", data.access_token);
-                        localStorage.setItem("refresh_token", data.refresh_token);
-                    }
-
+                    const data = await response.json();
                     if (data.flow === "reset") {
                         window.location.href = "/auth/reset-password";
                     } else {
-                        window.location.href = "/apps";
+                        window.location.href = "/dashboard";
                     }
                 } else {
-                    setError(data.detail || "Verification failed. The link may have expired.");
+                    const data = await response.json();
+                    setError(data.error || "Verification failed. The link may have expired.");
                 }
             } catch {
                 setError("Something went wrong. Please try again.");
@@ -105,7 +99,7 @@ function VerifyContent() {
                     <h1 className="auth-title">Verification failed</h1>
                     <p className="auth-description">{error}</p>
                 </div>
-                <a href="/auth/login" className="auth-submit-btn auth-action">
+                <a href="/login" className="auth-submit-btn auth-action">
                     Back to sign in
                 </a>
             </div>

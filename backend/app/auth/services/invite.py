@@ -20,7 +20,9 @@ from app.auth.schemas import (
     InviteValidation,
     LoginResponse,
     OrganizationBrief,
+    RegisterResult,
     TokenResponse,
+    UserCreate,
     UserCreateInvite,
 )
 from app.core.security import create_access_token, create_refresh_token
@@ -95,6 +97,63 @@ class InviteService:
                 invited_by=inviter_id,
             )
             await self.invite_repo.create(invitation)
+
+    async def register_owner(self, data: UserCreate) -> RegisterResult:
+        """
+        Register a new org owner: creates User + Organization + Membership atomically.
+        Mirrors the APILens pattern of service-layer orchestration.
+        """
+        from app.core.utils import slugify
+
+        # 1. Check email uniqueness
+        if await self.user_repo.exists_by_email(data.email):
+            raise ConflictError("Email already registered")
+
+        # 2. Create User
+        user = User(
+            email=data.email.lower().strip(),
+            hashed_password=hash_password(data.password),
+            first_name=data.first_name,
+            last_name=data.last_name,
+        )
+        user = await self.user_repo.create(user)
+
+        # 3. Create Organization with unique slug
+        base_slug = slugify(data.organization_name)
+        slug = await self.org_repo.generate_unique_slug(base_slug)
+
+        organization = Organization(
+            name=data.organization_name,
+            slug=slug,
+        )
+        organization = await self.org_repo.create(organization)
+
+        # 4. Create Membership (OWNER)
+        membership = UserOrganization(
+            user_id=user.id,
+            organization_id=organization.id,
+            role=OrgRole.OWNER,
+        )
+        await self.membership_repo.create(membership)
+
+        # 5. Create optional invites
+        if data.invites:
+            await self.create_invites_for_registration(
+                org_id=organization.id,
+                invites=data.invites,
+                inviter_id=user.id,
+            )
+
+        # 6. Generate tokens
+        access_token = create_access_token(str(user.id))
+        refresh_token = create_refresh_token(str(user.id))
+
+        return RegisterResult(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            user_id=user.id,
+            organization_id=organization.id,
+        )
 
     async def validate_invite(self, token: str) -> InviteValidation:
         """Validate an invitation token and return typed details."""

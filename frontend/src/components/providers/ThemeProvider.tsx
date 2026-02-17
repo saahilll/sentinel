@@ -22,15 +22,20 @@ function getSystemTheme(): ResolvedTheme {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("system");
+  const [theme, setThemeState] = useState<Theme>("dark");
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("dark");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     const stored = localStorage.getItem("theme") as Theme;
-    if (stored && ["dark", "light", "system"].includes(stored)) {
-      setThemeState(stored);
+    // Default to "dark" — only override if user explicitly chose "light"
+    if (stored === "light") {
+      setThemeState("light");
+    } else {
+      // Force dark as default (overrides stale "system" values in localStorage)
+      setThemeState("dark");
+      localStorage.setItem("theme", "dark");
     }
   }, []);
 

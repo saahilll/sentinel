@@ -6,7 +6,7 @@ Includes rate limiting on sensitive endpoints.
 
 import uuid
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, status
 
 from app.auth.schemas import (
     MagicLinkRequest,

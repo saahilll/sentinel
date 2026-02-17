@@ -12,19 +12,26 @@ export default function DashboardPage() {
     const [user, setUser] = useState<{ email: string } | null>(null)
 
     useEffect(() => {
-        // In a real app, we'd fetch user details from an endpoint like /auth/me
-        // For now, we'll just check if the token exists
-        const token = localStorage.getItem("access_token")
-        if (!token) {
-            router.push("/login")
-        } else {
-            // Mock user for display since we don't have a /me endpoint ready yet
-            setUser({ email: "user@example.com" })
-        }
+        // Check session via BFF endpoint
+        fetch("/api/auth/me", { credentials: "include" })
+            .then(async (res) => {
+                if (!res.ok) {
+                    router.push("/login")
+                    return
+                }
+                const data = await res.json()
+                setUser({ email: data.email })
+            })
+            .catch(() => {
+                router.push("/login")
+            })
     }, [router])
 
-    const handleLogout = () => {
-        localStorage.removeItem("access_token")
+    const handleLogout = async () => {
+        await fetch("/api/auth/logout", {
+            method: "POST",
+            credentials: "include",
+        })
         router.push("/login")
     }
 
