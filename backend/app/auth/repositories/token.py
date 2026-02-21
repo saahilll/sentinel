@@ -289,20 +289,46 @@ class TokenRepository:
 
     async def create_magic_link_token(
         self, email: str, ip_address: Optional[str] = None
-    ) -> str:
+    ) -> tuple[str, str]:
         raw_token = secrets.token_urlsafe(48)
+        
+        # Generate 6-digit OTP
+        import random
+        raw_otp = f"{random.randint(0, 999999):06d}"
+        
         now = datetime.now(timezone.utc)
 
         token = MagicLinkToken(
             email=email.lower().strip(),
             token_hash=self._hash_token(raw_token),
+            otp_hash=self._hash_token(raw_otp),
             expires_at=now + MAGIC_LINK_LIFETIME,
             ip_address=ip_address,
             created_at=now,
         )
         self.session.add(token)
         await self.session.flush()
-        return raw_token
+        return raw_token, raw_otp
+
+    async def get_magic_link_token_by_email(self, email: str) -> Optional[MagicLinkToken]:
+        """Get the latest unused, unexpired magic link token for an email."""
+        now = datetime.now(timezone.utc)
+        stmt = (
+            select(MagicLinkToken)
+            .where(
+                MagicLinkToken.email == email.lower().strip(),
+                MagicLinkToken.is_used == False,
+                MagicLinkToken.expires_at > now,
+            )
+            .order_by(col(MagicLinkToken.created_at).desc())
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
+
+    async def increment_otp_failed_attempts(self, token: MagicLinkToken) -> None:
+        token.failed_attempts += 1
+        self.session.add(token)
+        await self.session.flush()
 
     async def get_magic_link_token(self, raw_token: str) -> Optional[MagicLinkToken]:
         token_hash = self._hash_token(raw_token)

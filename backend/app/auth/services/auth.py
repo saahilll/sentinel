@@ -19,11 +19,13 @@ logger = logging.getLogger(__name__)
 
 
 # Placeholder for email service (prints to console in dev)
-def _send_magic_link_email(email: str, token: str) -> None:
+def _send_magic_link_email(email: str, token: str, otp: Optional[str] = None) -> None:
     print(
         f"MAGIC LINK for {email}: "
         f"http://localhost:3000/verify?token={token}&flow=signup"
     )
+    if otp:
+        print(f"OTP for {email}: {otp}")
 
 
 class AuthService:
@@ -47,8 +49,8 @@ class AuthService:
                 "Too many magic link requests. Please wait a moment."
             )
 
-        raw_token = await self.token_repo.create_magic_link_token(email, ip_address)
-        _send_magic_link_email(email, raw_token)
+        raw_token, raw_otp = await self.token_repo.create_magic_link_token(email, ip_address)
+        _send_magic_link_email(email, raw_token, otp=raw_otp)
 
     async def verify_magic_link(
         self,
@@ -76,6 +78,60 @@ class AuthService:
             )
             user = await self.user_repo.create(new_user)
             logger.info(f"New user created via magic link: {magic_token.email}")
+        elif not user.email_verified:
+            user.email_verified = True
+            await self.user_repo.update(user)
+
+        # Update last login
+        user.last_login_at = datetime.now(timezone.utc)
+        await self.user_repo.update(user)
+
+        # Create tokens (pass remember_me)
+        raw_refresh, _ = await self.token_repo.create_refresh_token(
+            user, device_info, ip_address, remember_me=remember_me
+        )
+        access_token = create_access_token(subject=str(user.id))
+
+        return access_token, raw_refresh, user
+
+    async def verify_otp(
+        self,
+        email: str,
+        otp: str,
+        device_info: str = "",
+        ip_address: Optional[str] = None,
+        remember_me: bool = True,
+    ) -> tuple[str, str, User]:
+        """Verify an OTP and return (access_token, refresh_token, user)."""
+        email = email.lower().strip()
+        magic_token = await self.token_repo.get_magic_link_token_by_email(email)
+        
+        if not magic_token:
+            raise AuthenticationError("No pending login request or code expired")
+            
+        if magic_token.failed_attempts >= 5:
+            raise AuthenticationError("Too many invalid attempts. Please request a new code.")
+            
+        hashed_otp_attempt = self.token_repo._hash_token(otp)
+        if magic_token.otp_hash != hashed_otp_attempt:
+            await self.token_repo.increment_otp_failed_attempts(magic_token)
+            remaining = 5 - magic_token.failed_attempts
+            raise AuthenticationError(f"Invalid code. {remaining} attempts remaining.")
+
+        await self.token_repo.mark_magic_link_used(magic_token)
+
+        # Get or create user (same logic as magic link)
+        user = await self.user_repo.get_by_email(magic_token.email)
+        if not user:
+            new_user = User(
+                email=magic_token.email,
+                first_name="User",
+                hashed_password="!",  # unusable password
+                email_verified=True,
+                auth_provider="otp",
+            )
+            user = await self.user_repo.create(new_user)
+            logger.info(f"New user created via OTP: {magic_token.email}")
         elif not user.email_verified:
             user.email_verified = True
             await self.user_repo.update(user)

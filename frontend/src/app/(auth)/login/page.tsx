@@ -39,6 +39,7 @@ export default function LoginPage() {
     const [authMode, setAuthMode] = useState<AuthMode>("magic");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [otp, setOtp] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -131,6 +132,38 @@ export default function LoginPage() {
         }
     };
 
+    const handleVerifyOtp = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (otp.length !== 6) {
+            setError("Please enter a valid 6-digit code.");
+            return;
+        }
+
+        setError("");
+        setIsSubmitting(true);
+
+        try {
+            const response = await fetch("/api/auth/verify-otp", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, otp, remember_me: rememberMe }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                setError(data.error || "Verification failed. Please check the code and try again.");
+                return;
+            }
+
+            window.location.href = "/dashboard";
+        } catch {
+            setError("Something went wrong. Please try again.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     if (view === "magic-link-sent" || view === "forgot-sent") {
         const isForgot = view === "forgot-sent";
         return (
@@ -145,18 +178,61 @@ export default function LoginPage() {
                             <p className="auth-status-kicker">{isForgot ? "Reset Link Sent" : "Magic Link Sent"}</p>
                             <h1 className="auth-title">Check your email</h1>
                             <p className="auth-description auth-status-description">
-                                {isForgot ? "Open the link to continue password reset." : "Open the link to sign in."}
+                                {isForgot ? "Open the link to continue password reset." : "We sent a magic link and a 6-digit code."}
                             </p>
                             <p className="auth-status-email">
                                 <span className="auth-status-email-label">Sent to</span>
                                 <strong>{email}</strong>
                             </p>
+
+                            {!isForgot && (
+                                <form onSubmit={handleVerifyOtp} className="auth-form auth-form-tight" style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
+                                    <div className="auth-input-group">
+                                        <label htmlFor="otp" className="auth-label">Authentication Code</label>
+                                        <input
+                                            id="otp"
+                                            type="text"
+                                            value={otp}
+                                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                            placeholder="Enter 6-digit code"
+                                            className="auth-input"
+                                            style={{ textAlign: 'center', letterSpacing: '0.25em', fontSize: '1.2rem', fontWeight: 500 }}
+                                            maxLength={6}
+                                            required
+                                            autoFocus
+                                            autoComplete="one-time-code"
+                                            disabled={isSubmitting}
+                                        />
+                                    </div>
+
+                                    {error && <p className="auth-error">{error}</p>}
+
+                                    <button
+                                        type="submit"
+                                        className="auth-submit-btn"
+                                        disabled={isSubmitting || otp.length !== 6}
+                                    >
+                                        {isSubmitting ? (
+                                            <Loader2 size={16} className="animate-spin" />
+                                        ) : (
+                                            <>
+                                                Verify Code
+                                                <ArrowRight size={14} />
+                                            </>
+                                        )}
+                                    </button>
+                                </form>
+                            )}
+
+                            {isForgot && error && <p className="auth-error">{error}</p>}
+
                             <div className="auth-status-divider" aria-hidden="true" />
                             <div className="auth-status-actions auth-status-actions-minimal">
                                 <button
                                     type="button"
                                     className="auth-link-btn"
                                     onClick={() => {
+                                        setOtp("");
                                         if (isForgot) {
                                             void handleForgotPassword();
                                         } else {
@@ -165,13 +241,14 @@ export default function LoginPage() {
                                     }}
                                     disabled={isSubmitting}
                                 >
-                                    {isSubmitting ? "Sending..." : "Resend link"}
+                                    {isSubmitting ? "Sending..." : "Resend email"}
                                 </button>
                                 <button
                                     className="auth-link-btn"
                                     onClick={() => {
                                         setView("default");
                                         setPassword("");
+                                        setOtp("");
                                         setError("");
                                     }}
                                 >

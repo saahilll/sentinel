@@ -33,6 +33,8 @@ class MagicLinkToken(SQLModel, table=True):
     token_hash: str = Field(max_length=64, unique=True, index=True)
     expires_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
     is_used: bool = Field(default=False)
+    otp_hash: Optional[str] = Field(default=None, max_length=64, index=True)
+    failed_attempts: int = Field(default=0)
     ip_address: Optional[str] = Field(default=None, max_length=45)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),

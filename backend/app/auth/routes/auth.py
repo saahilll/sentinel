@@ -22,6 +22,7 @@ from app.auth.schemas import (
     ValidateRequest,
     ValidateResponse,
     VerifyRequest,
+    VerifyOtpRequest,
 )
 from app.core.dependencies import get_auth_service, get_current_user_id
 
@@ -61,6 +62,24 @@ async def verify_magic_link(
     device = data.device_info or request.headers.get("user-agent", "")[:255]
     access_token, refresh_token, _ = await auth_service.verify_magic_link(
         token=data.token,
+        device_info=device,
+        ip_address=ip,
+        remember_me=data.remember_me,
+    )
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+
+@router.post("/verify-otp", response_model=TokenResponse)
+async def verify_otp(
+    data: VerifyOtpRequest,
+    request: Request,
+    auth_service=Depends(get_auth_service),
+):
+    ip = _get_client_ip(request)
+    device = data.device_info or request.headers.get("user-agent", "")[:255]
+    access_token, refresh_token, _ = await auth_service.verify_otp(
+        email=data.email,
+        otp=data.otp,
         device_info=device,
         ip_address=ip,
         remember_me=data.remember_me,

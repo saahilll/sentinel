@@ -165,6 +165,14 @@ class VerifyRequest(BaseModel):
     remember_me: bool = True
 
 
+class VerifyOtpRequest(BaseModel):
+    email: EmailStr
+    otp: str = Field(min_length=6, max_length=6)
+    flow: str | None = None
+    device_info: str | None = ""
+    remember_me: bool = True
+
+
 class PasswordLoginRequest(BaseModel):
     email: EmailStr
     password: str
