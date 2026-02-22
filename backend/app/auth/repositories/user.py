@@ -61,3 +61,24 @@ class UserRepository:
         """Check if a user with the given email exists."""
         user = await self.get_by_email(email)
         return user is not None
+
+    async def get_user_organizations(self, user_id: uuid.UUID) -> list["OrganizationBrief"]:
+        """Get brief info of all organizations a user belongs to."""
+        from app.auth.models.membership import UserOrganization
+        from app.auth.models.organization import Organization
+        from app.auth.schemas import OrganizationBrief
+        
+        statement = (
+            select(Organization.id, Organization.name, Organization.slug, UserOrganization.role)
+            .join(UserOrganization, UserOrganization.organization_id == Organization.id)
+            .where(UserOrganization.user_id == user_id)
+            .where(Organization.is_active == True)
+        )
+        
+        result = await self.session.execute(statement)
+        rows = result.all()
+        
+        return [
+            OrganizationBrief(id=row.id, name=row.name, slug=row.slug, role=row.role)
+            for row in rows
+        ]

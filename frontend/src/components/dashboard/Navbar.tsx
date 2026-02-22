@@ -64,7 +64,7 @@ export default function Navbar({ appSlug }: NavbarProps) {
                                 <p className="dropdown-user-email">{displayEmail}</p>
                             </div>
                             <div className="dropdown-divider" />
-                            <a href="/account" className="dropdown-item">
+                            <a href="/settings/account" className="dropdown-item">
                                 <Settings size={14} />
                                 <span>Account Settings</span>
                             </a>

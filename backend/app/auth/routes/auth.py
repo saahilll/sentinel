@@ -17,6 +17,8 @@ from app.auth.schemas import (
     SessionResponse,
     SetPasswordRequest,
     TokenResponse,
+    LoginResponse,
+    OrganizationBrief,
     UpdateProfileRequest,
     UserResponse,
     ValidateRequest,
@@ -52,7 +54,7 @@ async def request_magic_link(
     return {"message": "If that email is valid, a magic link has been sent."}
 
 
-@router.post("/verify", response_model=TokenResponse)
+@router.post("/verify", response_model=LoginResponse)
 async def verify_magic_link(
     data: VerifyRequest,
     request: Request,
@@ -60,16 +62,21 @@ async def verify_magic_link(
 ):
     ip = _get_client_ip(request)
     device = data.device_info or request.headers.get("user-agent", "")[:255]
-    access_token, refresh_token, _ = await auth_service.verify_magic_link(
+    access_token, refresh_token, user = await auth_service.verify_magic_link(
         token=data.token,
         device_info=device,
         ip_address=ip,
         remember_me=data.remember_me,
     )
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+    organizations = await auth_service.user_repo.get_user_organizations(user.id)
+    return LoginResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        organizations=organizations,
+    )
 
 
-@router.post("/verify-otp", response_model=TokenResponse)
+@router.post("/verify-otp", response_model=LoginResponse)
 async def verify_otp(
     data: VerifyOtpRequest,
     request: Request,
@@ -77,20 +84,25 @@ async def verify_otp(
 ):
     ip = _get_client_ip(request)
     device = data.device_info or request.headers.get("user-agent", "")[:255]
-    access_token, refresh_token, _ = await auth_service.verify_otp(
+    access_token, refresh_token, user = await auth_service.verify_otp(
         email=data.email,
         otp=data.otp,
         device_info=device,
         ip_address=ip,
         remember_me=data.remember_me,
     )
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+    organizations = await auth_service.user_repo.get_user_organizations(user.id)
+    return LoginResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        organizations=organizations,
+    )
 
 
 # ── Password Login ────────────────────────────────────────────────
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=LoginResponse)
 async def login_with_password(
     data: PasswordLoginRequest,
     request: Request,
@@ -98,14 +110,19 @@ async def login_with_password(
 ):
     ip = _get_client_ip(request)
     device = request.headers.get("user-agent", "")[:255]
-    access_token, refresh_token, _ = await auth_service.login_with_password(
+    access_token, refresh_token, user = await auth_service.login_with_password(
         email=data.email,
         password=data.password,
         device_info=device,
         ip_address=ip,
         remember_me=data.remember_me,
     )
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+    organizations = await auth_service.user_repo.get_user_organizations(user.id)
+    return LoginResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        organizations=organizations,
+    )
 
 
 # ── Token Management ──────────────────────────────────────────────
@@ -204,6 +221,15 @@ async def get_me(
 ):
     user = await auth_service.user_repo.get_by_id(uuid.UUID(user_id))
     return user
+
+
+@router.get("/organizations", response_model=list[OrganizationBrief])
+async def get_my_organizations(
+    user_id: str = Depends(get_current_user_id),
+    auth_service=Depends(get_auth_service),
+):
+    """List organizations the user belongs to."""
+    return await auth_service.user_repo.get_user_organizations(uuid.UUID(user_id))
 
 
 # ── Profile Management ────────────────────────────────────────────

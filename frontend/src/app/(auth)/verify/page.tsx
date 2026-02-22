@@ -58,6 +58,8 @@ function VerifyContent() {
                     const data = await response.json();
                     if (data.flow === "reset") {
                         window.location.href = "/auth/reset-password";
+                    } else if (data.organizations && data.organizations.length > 1) {
+                        window.location.href = "/select-org";
                     } else {
                         window.location.href = "/dashboard";
                     }

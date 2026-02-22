@@ -64,7 +64,11 @@ export default function LoginPage() {
                 return;
             }
 
-            window.location.href = "/dashboard";
+            if (data.organizations && data.organizations.length > 1) {
+                window.location.href = "/select-org";
+            } else {
+                window.location.href = "/dashboard";
+            }
         } catch {
             setError("Something went wrong. Please try again.");
         } finally {
@@ -156,7 +160,11 @@ export default function LoginPage() {
                 return;
             }
 
-            window.location.href = "/dashboard";
+            if (data.organizations && data.organizations.length > 1) {
+                window.location.href = "/select-org";
+            } else {
+                window.location.href = "/dashboard";
+            }
         } catch {
             setError("Something went wrong. Please try again.");
         } finally {

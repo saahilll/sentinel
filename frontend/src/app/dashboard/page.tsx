@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Monitor, LogOut } from "lucide-react"
+import { Monitor } from "lucide-react"
+import Navbar from "@/components/dashboard/Navbar"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -41,18 +42,9 @@ export default function DashboardPage() {
 
     return (
         <div className="min-h-screen bg-black text-white p-8">
-            <header className="flex items-center justify-between mb-8 max-w-5xl mx-auto">
-                <div className="flex items-center space-x-2">
-                    <Monitor className="h-6 w-6 text-blue-500" />
-                    <h1 className="text-xl font-bold">Sentinel Dashboard</h1>
-                </div>
-                <Button variant="outline" onClick={handleLogout} className="border-zinc-800 hover:bg-zinc-900 text-zinc-300">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Logout
-                </Button>
-            </header>
+            <Navbar />
 
-            <main className="max-w-5xl mx-auto grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <main className="max-w-5xl mx-auto grid gap-6 md:grid-cols-2 lg:grid-cols-3 mt-8">
                 <Card className="bg-zinc-900 border-zinc-800 text-white">
                     <CardHeader>
                         <CardTitle>Overview</CardTitle>

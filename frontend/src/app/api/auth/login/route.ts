@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
         const rememberMe = body.remember_me ?? true;
         const cookie = buildSessionCookie(sessionData, rememberMe);
 
-        const res = NextResponse.json({ success: true });
+        const res = NextResponse.json({ success: true, organizations: data.organizations });
         res.cookies.set(cookie);
 
         return res;
