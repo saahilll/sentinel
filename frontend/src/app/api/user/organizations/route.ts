@@ -7,3 +7,12 @@ export async function GET(request: NextRequest) {
         path: "/auth/organizations",
     });
 }
+
+export async function POST(request: NextRequest) {
+    const body = await request.text();
+    return authenticatedProxy(request, {
+        method: "POST",
+        path: "/auth/organizations",
+        body,
+    });
+}

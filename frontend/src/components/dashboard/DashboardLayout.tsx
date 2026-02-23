@@ -1,22 +1,28 @@
 "use client";
 
 import { useAuth } from "@/components/providers/AuthProvider";
-import { OptionalAppProvider } from "@/components/providers/AppProvider";
 import { SidebarProvider, useSidebar } from "@/components/providers/SidebarProvider";
+import { useOrg } from "@/components/providers/OrgProvider";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
+import { useEffect } from "react";
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
-    appSlug?: string;
 }
 
-function DashboardInner({ children, appSlug }: DashboardLayoutProps) {
-    const { isLoading } = useAuth();
+function DashboardInner({ children }: DashboardLayoutProps) {
+    const { isLoading: authLoading, isAuthenticated } = useAuth();
     const { collapsed } = useSidebar();
+    const { isLoading: orgLoading, org } = useOrg();
 
-    // If loading user, show localized loader
-    if (isLoading) {
+    useEffect(() => {
+        if (!authLoading && !isAuthenticated) {
+            window.location.href = "/login";
+        }
+    }, [authLoading, isAuthenticated]);
+
+    if (authLoading || orgLoading) {
         return (
             <div className="loading-screen">
                 <div className="loading-spinner" />
@@ -25,11 +31,15 @@ function DashboardInner({ children, appSlug }: DashboardLayoutProps) {
         );
     }
 
+    if (!isAuthenticated || !org) {
+        return null;
+    }
+
     return (
         <div className="dashboard-container">
-            <Sidebar appSlug={appSlug} />
+            <Sidebar />
             <div className={`main-wrapper ${collapsed ? "main-wrapper-expanded" : ""}`}>
-                <Navbar appSlug={appSlug} />
+                <Navbar />
                 <main className="main-content">
                     {children}
                 </main>
@@ -38,12 +48,10 @@ function DashboardInner({ children, appSlug }: DashboardLayoutProps) {
     );
 }
 
-export default function DashboardLayout({ children, appSlug }: DashboardLayoutProps) {
+export default function DashboardLayout({ children }: DashboardLayoutProps) {
     return (
         <SidebarProvider>
-            <OptionalAppProvider appSlug={appSlug}>
-                <DashboardInner appSlug={appSlug}>{children}</DashboardInner>
-            </OptionalAppProvider>
+            <DashboardInner>{children}</DashboardInner>
         </SidebarProvider>
     );
 }

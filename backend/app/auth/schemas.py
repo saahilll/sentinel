@@ -98,6 +98,13 @@ class OrganizationResponse(BaseModel):
     created_at: datetime
 
 
+class CreateOrganizationRequest(BaseModel):
+    """Schema for creating a new organization."""
+
+    name: str
+    description: str | None = None
+
+
 class TokenResponse(BaseModel):
     """Schema for authentication tokens."""
 

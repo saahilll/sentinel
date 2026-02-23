@@ -6,11 +6,7 @@ import Breadcrumbs from "./Breadcrumbs";
 import { Bell, LogOut, Settings } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
-export interface NavbarProps {
-    appSlug?: string;
-}
-
-export default function Navbar({ appSlug }: NavbarProps) {
+export default function Navbar() {
     const { user, isLoading, logout } = useAuth();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -31,7 +27,7 @@ export default function Navbar({ appSlug }: NavbarProps) {
     return (
         <header className="navbar">
             <div className="navbar-left">
-                {appSlug && <Breadcrumbs appSlug={appSlug} />}
+                <Breadcrumbs />
             </div>
 
             <div className="navbar-right">

@@ -60,8 +60,10 @@ function VerifyContent() {
                         window.location.href = "/auth/reset-password";
                     } else if (data.organizations && data.organizations.length > 1) {
                         window.location.href = "/select-org";
+                    } else if (!data.organizations || data.organizations.length === 0) {
+                        window.location.href = "/create-org";
                     } else {
-                        window.location.href = "/dashboard";
+                        window.location.href = `/${data.organizations[0].slug}/dashboard`;
                     }
                 } else {
                     const data = await response.json();

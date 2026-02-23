@@ -12,6 +12,8 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from app.auth.router import router as auth_router
+from app.incidents.routes import router as incidents_router
+from app.services.routes import router as services_router
 from app.core.database import init_db
 from app.core.exception_handlers import register_exception_handlers
 from app.core.middleware import SecurityHeadersMiddleware
@@ -63,6 +65,8 @@ app.add_middleware(
 
 # Mount feature routers
 app.include_router(auth_router, prefix="/api")
+app.include_router(incidents_router, prefix="/api")
+app.include_router(services_router, prefix="/api")
 
 
 @app.get("/", tags=["Root"])

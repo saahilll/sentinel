@@ -34,9 +34,14 @@ export default function SelectOrgPage() {
                 }
                 const data = await res.json();
 
-                if (data.organizations?.length === 1) {
+                if (!data.organizations || data.organizations.length === 0) {
+                    router.push("/create-org");
+                    return;
+                }
+
+                if (data.organizations.length === 1) {
                     // Auto redirect if only one
-                    router.push("/dashboard");
+                    router.push(`/${data.organizations[0].slug}/dashboard`);
                     return;
                 }
 
@@ -59,7 +64,7 @@ export default function SelectOrgPage() {
             // In a real multi-tenant app, the dashboard URL might be /apps/[slug] or similar
             // Looking at the app router, there is apps/[slug]/page.tsx
 
-            router.push(`/apps/${slug}`);
+            router.push(`/${slug}/dashboard`);
         } catch (err) {
             console.error(err);
             setIsSelecting(null);

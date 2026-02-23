@@ -18,6 +18,8 @@ from app.auth.models.user import User  # noqa: F401
 from app.auth.models.organization import Organization  # noqa: F401
 from app.auth.models.membership import UserOrganization  # noqa: F401
 from app.auth.models.invitation import Invitation  # noqa: F401
+from app.services.models import Service  # noqa: F401
+from app.incidents.models import Incident, IncidentAttachment  # noqa: F401
 
 # Alembic Config object
 config = context.config

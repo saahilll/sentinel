@@ -3,46 +3,43 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronRight } from "lucide-react";
-import { useApp } from "@/components/providers/AppProvider";
-
-interface BreadcrumbsProps {
-    appSlug: string;
-}
 
 const sectionMap: Record<string, string> = {
-    endpoints: "Endpoints",
-    logs: "Logs",
-    analytics: "Analytics",
-    monitors: "Monitors",
+    dashboard: "Dashboard",
+    incidents: "Incidents",
+    services: "Services",
     settings: "Settings",
 };
 
-export default function Breadcrumbs({ appSlug }: BreadcrumbsProps) {
+export default function Breadcrumbs() {
     const pathname = usePathname();
-    const { app } = useApp();
 
     const parts = pathname.split("/").filter(Boolean);
-    const section = parts[2];
+    const section = parts[0];
     const sectionName = section ? (sectionMap[section] || section.charAt(0).toUpperCase() + section.slice(1)) : null;
-    const displayName = app?.name || appSlug;
+    const subSection = parts.length > 1 ? parts.slice(1).join(" / ") : null;
 
     return (
         <nav className="breadcrumbs" aria-label="Breadcrumb">
             <ol className="breadcrumbs-list">
                 <li className="breadcrumbs-item">
-                    <Link href="/apps" className="breadcrumbs-link">Apps</Link>
-                </li>
-                <ChevronRight size={14} className="breadcrumbs-separator" />
-                <li className="breadcrumbs-item">
-                    <Link href={`/apps/${appSlug}`} className="breadcrumbs-link breadcrumbs-app">
-                        {displayName}
-                    </Link>
+                    <Link href="/dashboard" className="breadcrumbs-link">Home</Link>
                 </li>
                 {sectionName && (
                     <>
                         <ChevronRight size={14} className="breadcrumbs-separator" />
                         <li className="breadcrumbs-item">
                             <span className="breadcrumbs-current">{sectionName}</span>
+                        </li>
+                    </>
+                )}
+                {subSection && (
+                    <>
+                        <ChevronRight size={14} className="breadcrumbs-separator" />
+                        <li className="breadcrumbs-item">
+                            <span className="breadcrumbs-current">
+                                {subSection.charAt(0).toUpperCase() + subSection.slice(1)}
+                            </span>
                         </li>
                     </>
                 )}

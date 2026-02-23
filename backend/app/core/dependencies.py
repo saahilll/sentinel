@@ -95,3 +95,35 @@ def get_invite_service(
     """Provide InviteService with injected repositories."""
     from app.auth.services.invite import InviteService
     return InviteService(invite_repo, org_repo, membership_repo, user_repo)
+
+
+# --- ITSM Repository Providers ---
+
+def get_service_repo(db: AsyncSession = Depends(get_db)):
+    """Provide ServiceRepository instance."""
+    from app.services.repository import ServiceRepository
+    return ServiceRepository(db)
+
+
+def get_incident_repo(db: AsyncSession = Depends(get_db)):
+    """Provide IncidentRepository instance."""
+    from app.incidents.repository import IncidentRepository
+    return IncidentRepository(db)
+
+
+# --- ITSM Service Providers ---
+
+def get_service_service(
+    repo=Depends(get_service_repo),
+):
+    """Provide ServiceService with injected repository."""
+    from app.services.service import ServiceService
+    return ServiceService(repo)
+
+
+def get_incident_service(
+    repo=Depends(get_incident_repo),
+):
+    """Provide IncidentService with injected repository."""
+    from app.incidents.service import IncidentService
+    return IncidentService(repo)

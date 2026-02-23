@@ -9,6 +9,7 @@ import uuid
 from fastapi import APIRouter, Depends, Request, status
 
 from app.auth.schemas import (
+    CreateOrganizationRequest,
     MagicLinkRequest,
     MessageResponse,
     PasswordLoginRequest,
@@ -19,6 +20,7 @@ from app.auth.schemas import (
     TokenResponse,
     LoginResponse,
     OrganizationBrief,
+    OrganizationResponse,
     UpdateProfileRequest,
     UserResponse,
     ValidateRequest,
@@ -26,7 +28,7 @@ from app.auth.schemas import (
     VerifyRequest,
     VerifyOtpRequest,
 )
-from app.core.dependencies import get_auth_service, get_current_user_id
+from app.core.dependencies import get_auth_service, get_current_user_id, get_invite_service
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -230,6 +232,43 @@ async def get_my_organizations(
 ):
     """List organizations the user belongs to."""
     return await auth_service.user_repo.get_user_organizations(uuid.UUID(user_id))
+
+
+@router.post("/organizations", response_model=OrganizationResponse, status_code=status.HTTP_201_CREATED)
+async def create_organization(
+    data: CreateOrganizationRequest,
+    user_id: str = Depends(get_current_user_id),
+    invite_service=Depends(get_invite_service),
+):
+    """Create a new organization. The current user becomes the owner."""
+    from app.auth.models.membership import OrgRole, UserOrganization
+    from app.auth.models.organization import Organization
+    from app.core.utils import slugify
+
+    base_slug = slugify(data.name)
+    slug = await invite_service.org_repo.generate_unique_slug(base_slug)
+
+    organization = Organization(
+        name=data.name,
+        slug=slug,
+        description=data.description,
+    )
+    organization = await invite_service.org_repo.create(organization)
+
+    membership = UserOrganization(
+        user_id=uuid.UUID(user_id),
+        organization_id=organization.id,
+        role=OrgRole.OWNER,
+    )
+    await invite_service.membership_repo.create(membership)
+
+    return OrganizationResponse(
+        id=organization.id,
+        name=organization.name,
+        slug=organization.slug,
+        role=OrgRole.OWNER.value,
+        created_at=organization.created_at,
+    )
 
 
 # ── Profile Management ────────────────────────────────────────────

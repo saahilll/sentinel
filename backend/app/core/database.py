@@ -43,7 +43,9 @@ async def init_db() -> None:
     from app.auth.models.membership import UserOrganization  # noqa: F401
     from app.auth.models.organization import Organization  # noqa: F401
     from app.auth.models.user import User  # noqa: F401
-    from app.auth.models.token import RefreshToken, MagicLinkToken # noqa: F401
+    from app.auth.models.token import RefreshToken, MagicLinkToken  # noqa: F401
+    from app.services.models import Service  # noqa: F401
+    from app.incidents.models import Incident, IncidentAttachment  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
