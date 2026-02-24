@@ -2,6 +2,7 @@
 
 import { use } from "react";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useOrg } from "@/components/providers/OrgProvider";
 import { AccountSettingsPage } from "@/components/account";
 import Navbar from "@/components/dashboard/Navbar";
 import Link from "next/link";
@@ -13,6 +14,7 @@ export default function SettingsTabPage({
 }) {
     const { tab } = use(params);
     const { isLoading } = useAuth();
+    const { orgSlug } = useOrg();
 
     if (isLoading) {
         return (
@@ -27,7 +29,7 @@ export default function SettingsTabPage({
         <div className="standalone-layout">
             <header className="standalone-topbar">
                 <div className="standalone-topbar-left">
-                    <Link href="/dashboard" className="standalone-logo">
+                    <Link href={`/${orgSlug}/dashboard`} className="standalone-logo">
                         <span className="standalone-logo-text">Sentinel</span>
                     </Link>
                 </div>

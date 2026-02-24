@@ -1012,7 +1012,7 @@ body {
 
 .settings-page>.page-header {
   border-bottom: 1px solid var(--border-color);
-  padding: 0 32px 20px;
+  padding: 0 0 20px;
   margin-bottom: 0;
   flex-shrink: 0;
 }
@@ -1029,7 +1029,7 @@ body {
   max-width: 960px;
   width: 100%;
   margin: 0 auto;
-  padding: 0 32px;
+  padding: 0;
   overflow: hidden;
   overscroll-behavior: contain;
 }

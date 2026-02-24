@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useOrg } from "@/components/providers/OrgProvider";
 import UserAvatar from "@/components/shared/UserAvatar";
 import Breadcrumbs from "./Breadcrumbs";
 import { Bell, LogOut, Settings } from "lucide-react";
@@ -8,6 +9,7 @@ import { useState, useRef, useEffect } from "react";
 
 export default function Navbar() {
     const { user, isLoading, logout } = useAuth();
+    const { orgSlug } = useOrg();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -60,7 +62,7 @@ export default function Navbar() {
                                 <p className="dropdown-user-email">{displayEmail}</p>
                             </div>
                             <div className="dropdown-divider" />
-                            <a href="/settings/account" className="dropdown-item">
+                            <a href={`/${orgSlug}/settings/account`} className="dropdown-item">
                                 <Settings size={14} />
                                 <span>Account Settings</span>
                             </a>
